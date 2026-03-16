@@ -656,16 +656,17 @@ button {
 }
 
 #conversation-header {
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.15));
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.12));
   flex-shrink: 0;
-  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  background: var(--vscode-editor-background);
 }
 
 #conv-breadcrumb {
   font-size: 12px;
   color: var(--vscode-descriptionForeground);
-  opacity: 0.8;
+  opacity: 0.6;
+  font-family: var(--vscode-editor-font-family, monospace);
 }
 
 #conversation-container {
@@ -708,77 +709,202 @@ button {
 
 /* ── Conversation Messages ────────────────────────────────────────────────── */
 .conv-messages {
-  padding: 16px 0;
+  padding: 8px 0;
 }
 
 .msg {
   padding: 12px 20px;
-  border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.07));
+  border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.06));
 }
 
 .msg:last-child {
   border-bottom: none;
 }
 
-.msg-user {
-  background: var(--vscode-editor-background);
-}
-
-.msg-assistant {
-  background: var(--vscode-sideBar-background, rgba(128,128,128,0.03));
-}
-
 .msg-header {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
 }
 
 .msg-role {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
 }
 
 .msg-user .msg-role {
-  color: var(--vscode-textLink-foreground, #4fc1ff);
+  color: #d4b88c;
 }
 
 .msg-assistant .msg-role {
-  color: #c084fc;
+  color: #6b9eff;
 }
 
 .msg-time {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--vscode-descriptionForeground);
-  opacity: 0.5;
+  opacity: 0.45;
 }
 
 .msg-body {
   font-size: 13px;
   line-height: 1.6;
   color: var(--vscode-foreground);
+  padding-left: 2px;
 }
 
-/* ── Tool Use Blocks ──────────────────────────────────────────────────────── */
-.msg-tool {
+/* ── Tool Badge (collapsed) ───────────────────────────────────────────────── */
+.tool-badge {
+  margin: 4px 4px 4px 0;
+  border-radius: 6px;
+  background: rgba(128, 128, 128, 0.1);
+  cursor: pointer;
+  transition: background 0.15s;
+  display: inline-flex;
+  flex-direction: column;
+  vertical-align: top;
+}
+
+.tool-badge:hover {
+  background: rgba(128, 128, 128, 0.17);
+}
+
+.tool-badge-header {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  margin: 4px 0;
-  padding: 3px 10px;
-  border-radius: 4px;
-  background: var(--vscode-badge-background, rgba(128,128,128,0.12));
-  font-size: 11px;
-  color: var(--vscode-descriptionForeground);
-  font-family: var(--vscode-editor-font-family, monospace);
+  gap: 7px;
+  padding: 5px 12px;
+  user-select: none;
 }
 
-.tool-icon {
+.tool-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tool-dot.success {
+  background: #4ec9b0;
+}
+
+.tool-dot.error {
+  background: #f44747;
+}
+
+.tool-dot.pending {
+  background: #e8a030;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.tool-name {
+  font-family: var(--vscode-editor-font-family, monospace);
   font-size: 12px;
+  font-weight: 500;
+  color: var(--vscode-foreground);
+  opacity: 0.9;
+}
+
+.tool-preview {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
   opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 500px;
+}
+
+.tool-badge.expanded .tool-preview {
+  display: none;
+}
+
+.tool-desc {
+  display: none;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 400px;
+}
+
+/* ── Tool Badge (expanded) ────────────────────────────────────────────────── */
+.tool-badge.expanded {
+  display: flex;
+  width: 100%;
+  background: rgba(128, 128, 128, 0.06);
+  border: 1px solid rgba(128, 128, 128, 0.12);
+  margin: 6px 0;
+}
+
+.tool-badge.expanded .tool-badge-header {
+  padding: 6px 14px;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.08);
+}
+
+.tool-badge.expanded .tool-desc {
+  display: inline;
+}
+
+.tool-detail {
+  display: none;
+  padding: 6px 14px 10px;
+  font-size: 12px;
+}
+
+.tool-badge.expanded .tool-detail {
+  display: block;
+}
+
+.tool-io-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.tool-io-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.45;
+  min-width: 28px;
+  flex-shrink: 0;
+  padding-top: 2px;
+  letter-spacing: 0.02em;
+}
+
+.tool-io-content {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--vscode-foreground);
+  opacity: 0.85;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  max-height: 300px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.tool-io-empty {
+  font-style: italic;
+  opacity: 0.5;
+}
+
+/* ── Tool badges container ────────────────────────────────────────────────── */
+.tool-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 4px 0;
 }
 
 /* ── Text Formatting ──────────────────────────────────────────────────────── */
@@ -788,7 +914,7 @@ button {
 
 .code-block {
   background: var(--vscode-textBlockQuote-background, rgba(128,128,128,0.1));
-  border: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.15));
+  border: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.12));
   border-radius: 4px;
   padding: 10px 12px;
   margin: 8px 0;

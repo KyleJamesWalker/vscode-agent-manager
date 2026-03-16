@@ -6,6 +6,17 @@ import { ClaudeProject, ClaudeSession, SubAgent, ConversationMessage, MessageBlo
 const PROJECTS_DIR = path.join(os.homedir(), '.claude', 'projects');
 const MAX_SESSION_AGE_DAYS = 30;
 
+interface ContentItem {
+  type: string;
+  text?: string;
+  name?: string;
+  id?: string;
+  input?: Record<string, unknown>;
+  tool_use_id?: string;
+  content?: string | Array<{ type: string; text?: string }>;
+  is_error?: boolean;
+}
+
 interface RawMessage {
   type: string;
   sessionId?: string;
@@ -13,7 +24,7 @@ interface RawMessage {
   gitBranch?: string;
   timestamp?: string;
   message?: {
-    content?: string | Array<{ type: string; text?: string; name?: string }>;
+    content?: string | ContentItem[];
   };
   agentId?: string;
   slug?: string;
@@ -241,49 +252,222 @@ function decodeDirName(dirName: string): string {
   return '/' + dirName.replace(/^-/, '').replaceAll('-', '/');
 }
 
+/** Safely coerce an unknown value to string */
+function str(v: unknown): string {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  try { return JSON.stringify(v); } catch { return ''; }
+}
+
+function fileBasename(input: Record<string, unknown>): string {
+  const fp = str(input.file_path || input.notebook_path);
+  return fp ? path.basename(fp) : '';
+}
+
+function countOutputLines(output?: string): number {
+  if (!output) return 0;
+  return output.trim().split('\n').filter((l) => l.trim()).length;
+}
+
+function pluralSuffix(unit: string, count: number): string {
+  if (count === 1) return '';
+  return unit === 'match' ? 'es' : 's';
+}
+
+function searchPreview(pattern: unknown, output: string | undefined, unit: string): string {
+  const p = str(pattern);
+  let preview = p ? `"${p}"` : '';
+  const count = countOutputLines(output);
+  if (count > 0) preview += ` \u2192 ${count} ${unit}${pluralSuffix(unit, count)}`;
+  return preview;
+}
+
+function formatToolInput(name: string, input?: Record<string, unknown>): string {
+  if (!input) return '';
+  switch (name) {
+    case 'Bash':
+      return str(input.command);
+    case 'Read':
+    case 'Write':
+    case 'Edit':
+      return str(input.file_path);
+    case 'Grep':
+    case 'Glob':
+      return `${str(input.pattern)}${input.path ? ' in ' + str(input.path) : ''}`;
+    case 'TodoWrite': {
+      if (Array.isArray(input.todos)) {
+        return input.todos.map((t: Record<string, unknown>) =>
+          `[${t.status === 'completed' ? 'x' : ' '}] ${str(t.content || t.id)}`
+        ).join('\n');
+      }
+      try { return JSON.stringify(input, null, 2); } catch { return ''; }
+    }
+    case 'Agent': {
+      const parts: string[] = [];
+      if (input.subagent_type) parts.push(`type: ${str(input.subagent_type)}`);
+      if (input.description) parts.push(`desc: ${str(input.description)}`);
+      if (input.prompt) parts.push(str(input.prompt));
+      return parts.join('\n');
+    }
+    case 'Skill':
+      return `/${str(input.skill)}${input.args ? ' ' + str(input.args) : ''}`;
+    case 'ToolSearch':
+    case 'WebSearch':
+      return `query: ${str(input.query)}`;
+    case 'WebFetch':
+      return str(input.url);
+    case 'NotebookEdit':
+      return str(input.file_path || input.notebook_path);
+    default:
+      try { return JSON.stringify(input, null, 2); } catch { return ''; }
+  }
+}
+
+function generateToolPreview(
+  name: string,
+  input: Record<string, unknown>,
+  resultOutput?: string,
+): string {
+  switch (name) {
+    case 'Bash': {
+      const cmd = str(input.command);
+      if (!cmd) return '';
+      const line = cmd.split('\n')[0];
+      return line.length > 80 ? '$ ' + line.slice(0, 77) + '\u2026' : '$ ' + line;
+    }
+    case 'Read':
+    case 'Write':
+    case 'Edit':
+    case 'NotebookEdit':
+      return fileBasename(input);
+    case 'Grep':
+      return searchPreview(input.pattern, resultOutput, 'match');
+    case 'Glob':
+      return searchPreview(input.pattern, resultOutput, 'file');
+    case 'TodoWrite': {
+      if (!Array.isArray(input.todos)) return '';
+      const done = input.todos.filter((t: Record<string, unknown>) => t.status === 'completed').length;
+      const checks = input.todos.map((t: Record<string, unknown>) =>
+        t.status === 'completed' ? '\u2713' : '\u25CB'
+      ).join('');
+      return `${done}/${input.todos.length} done ${checks}`;
+    }
+    case 'ToolSearch': {
+      const q = str(input.query);
+      let preview = q ? `"${q}"` : '';
+      if (resultOutput) {
+        const n = (resultOutput.match(/"name":/g) || []).length;
+        if (n > 0) preview += ` \u2192 ${n} found`;
+      }
+      return preview;
+    }
+    case 'Agent':
+      return str(input.description || input.subagent_type);
+    case 'WebSearch':
+      return str(input.query);
+    case 'WebFetch': {
+      const url = str(input.url);
+      try { return new URL(url).hostname; } catch { return url.slice(0, 60); }
+    }
+    case 'Skill':
+      return `/${str(input.skill)}`;
+    default:
+      return '';
+  }
+}
+
+function extractToolResultText(content: string | Array<{ type: string; text?: string }> | undefined): string {
+  if (!content) return '';
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .filter((c) => c.type === 'text' && c.text)
+      .map((c) => c.text)
+      .join('\n');
+  }
+  return '';
+}
+
+function buildToolResultMap(rawMessages: RawMessage[]): Map<string, { output: string; isError: boolean }> {
+  const map = new Map<string, { output: string; isError: boolean }>();
+  for (const msg of rawMessages) {
+    const content = msg.message?.content;
+    if (!Array.isArray(content)) continue;
+    for (const item of content) {
+      if (item.type === 'tool_result' && item.tool_use_id) {
+        map.set(item.tool_use_id, {
+          output: extractToolResultText(item.content),
+          isError: !!item.is_error,
+        });
+      }
+    }
+  }
+  return map;
+}
+
+function buildToolBlock(
+  item: ContentItem,
+  toolResults: Map<string, { output: string; isError: boolean }>,
+): MessageBlock {
+  const result = item.id ? toolResults.get(item.id) : undefined;
+  const desc = item.input?.description == null ? undefined : str(item.input.description);
+  return {
+    type: 'tool',
+    content: item.name!,
+    toolUseId: item.id ?? '',
+    description: desc,
+    input: formatToolInput(item.name!, item.input),
+    output: result?.output,
+    isError: result?.isError,
+    preview: item.input ? generateToolPreview(item.name!, item.input, result?.output) : undefined,
+  };
+}
+
+function extractBlocks(
+  content: string | ContentItem[] | undefined,
+  toolResults: Map<string, { output: string; isError: boolean }>,
+): MessageBlock[] {
+  if (typeof content === 'string') {
+    return content.trim() ? [{ type: 'text', content }] : [];
+  }
+  if (!Array.isArray(content)) return [];
+  const blocks: MessageBlock[] = [];
+  for (const item of content) {
+    if (item.type === 'text' && item.text) {
+      blocks.push({ type: 'text', content: item.text });
+    } else if (item.type === 'tool_use' && item.name) {
+      blocks.push(buildToolBlock(item, toolResults));
+    }
+  }
+  return blocks;
+}
+
 export function readConversation(
   projectKey: string,
   sessionId: string,
   agentId?: string
 ): ConversationMessage[] {
-  let filePath: string;
-  if (agentId) {
-    filePath = path.join(PROJECTS_DIR, projectKey, sessionId, 'subagents', `agent-${agentId}.jsonl`);
-  } else {
-    filePath = path.join(PROJECTS_DIR, projectKey, `${sessionId}.jsonl`);
-  }
+  const filePath = agentId
+    ? path.join(PROJECTS_DIR, projectKey, sessionId, 'subagents', `agent-${agentId}.jsonl`)
+    : path.join(PROJECTS_DIR, projectKey, `${sessionId}.jsonl`);
 
-  const messages = parseJsonlFile(filePath);
+  const rawMessages = parseJsonlFile(filePath);
+  const toolResults = buildToolResultMap(rawMessages);
+
   const conversation: ConversationMessage[] = [];
-
-  for (const msg of messages) {
+  for (const msg of rawMessages) {
     if (msg.type !== 'user' && msg.type !== 'assistant') continue;
     if (msg.isMeta) continue;
 
-    const blocks: MessageBlock[] = [];
-    const content = msg.message?.content;
+    const blocks = extractBlocks(msg.message?.content, toolResults);
+    if (blocks.length === 0) continue;
 
-    if (typeof content === 'string') {
-      if (content.trim()) {
-        blocks.push({ type: 'text', content });
-      }
-    } else if (Array.isArray(content)) {
-      for (const item of content) {
-        if (item.type === 'text' && item.text) {
-          blocks.push({ type: 'text', content: item.text });
-        } else if (item.type === 'tool_use' && item.name) {
-          blocks.push({ type: 'tool', content: item.name });
-        }
-      }
-    }
-
-    if (blocks.length > 0) {
-      conversation.push({
-        role: msg.type === 'user' ? 'user' : 'assistant',
-        blocks,
-        timestamp: msg.timestamp,
-      });
-    }
+    conversation.push({
+      role: msg.type === 'user' ? 'user' : 'assistant',
+      blocks,
+      timestamp: msg.timestamp,
+    });
   }
 
   return conversation;

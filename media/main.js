@@ -540,6 +540,13 @@
     const html = messages.map(renderMessage).join('');
     container.innerHTML = `<div class="conv-messages">${html}</div>`;
 
+    // Tool badge click-to-expand
+    container.querySelectorAll('.tool-badge-header').forEach((header) => {
+      header.addEventListener('click', () => {
+        header.closest('.tool-badge').classList.toggle('expanded');
+      });
+    });
+
     // Scroll to bottom
     container.scrollTop = container.scrollHeight;
   }
@@ -551,12 +558,23 @@
       ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       : '';
 
-    const blocksHtml = msg.blocks.map((block) => {
+    // Group consecutive tool blocks into a flex container
+    let blocksHtml = '';
+    let i = 0;
+    while (i < msg.blocks.length) {
+      const block = msg.blocks[i];
       if (block.type === 'tool') {
-        return `<div class="msg-tool"><span class="tool-icon">&#9881;</span> ${esc(block.content)}</div>`;
+        let toolBadgesHtml = '';
+        while (i < msg.blocks.length && msg.blocks[i].type === 'tool') {
+          toolBadgesHtml += renderToolBadge(msg.blocks[i]);
+          i++;
+        }
+        blocksHtml += `<div class="tool-badges">${toolBadgesHtml}</div>`;
+      } else {
+        blocksHtml += `<div class="msg-text">${formatText(block.content)}</div>`;
+        i++;
       }
-      return `<div class="msg-text">${formatText(block.content)}</div>`;
-    }).join('');
+    }
 
     return `
 <div class="msg ${isUser ? 'msg-user' : 'msg-assistant'}">
@@ -565,6 +583,38 @@
     <span class="msg-time">${timeStr}</span>
   </div>
   <div class="msg-body">${blocksHtml}</div>
+</div>`;
+  }
+
+  function renderToolBadge(block) {
+    const dotClass = block.isError ? 'error' : (block.output !== undefined ? 'success' : 'pending');
+    const previewHtml = block.preview
+      ? `<span class="tool-preview">${esc(trunc(block.preview, 90))}</span>`
+      : '';
+    const descHtml = block.description
+      ? `<span class="tool-desc">${esc(trunc(block.description, 60))}</span>`
+      : '';
+    const inputText = block.input || '';
+    const outputText = block.output || '';
+
+    return `
+<div class="tool-badge" data-tool-id="${esc(block.toolUseId || '')}">
+  <div class="tool-badge-header">
+    <span class="tool-dot ${dotClass}"></span>
+    <span class="tool-name">${esc(block.content)}</span>
+    ${previewHtml}
+    ${descHtml}
+  </div>
+  <div class="tool-detail">
+    <div class="tool-io-row">
+      <span class="tool-io-label">IN</span>
+      <pre class="tool-io-content${!inputText ? ' tool-io-empty' : ''}">${inputText ? esc(inputText) : '(no input)'}</pre>
+    </div>
+    <div class="tool-io-row">
+      <span class="tool-io-label">OUT</span>
+      <pre class="tool-io-content${!outputText ? ' tool-io-empty' : ''}">${outputText ? esc(trunc(outputText, 3000)) : '(no output)'}</pre>
+    </div>
+  </div>
 </div>`;
   }
 
