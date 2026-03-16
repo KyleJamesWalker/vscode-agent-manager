@@ -1,0 +1,265 @@
+import * as vscode from 'vscode';
+import { readClaudeProjects, readConversation } from './claudeReader';
+
+interface ManagerSettings {
+  soundEnabled: boolean;
+  soundRepeatSec: number;
+}
+
+const DEFAULT_SETTINGS: ManagerSettings = {
+  soundEnabled: false,
+  soundRepeatSec: 0,
+};
+
+export class AgentManagerPanel {
+  public static currentPanel: AgentManagerPanel | undefined;
+  private static readonly viewType = 'claudeAgentManager';
+
+  private readonly _panel: vscode.WebviewPanel;
+  private readonly _context: vscode.ExtensionContext;
+  private _disposables: vscode.Disposable[] = [];
+  private _refreshTimer: ReturnType<typeof setInterval> | undefined;
+
+  public static createOrShow(context: vscode.ExtensionContext): void {
+    const column =
+      vscode.window.activeTextEditor?.viewColumn ?? vscode.ViewColumn.One;
+
+    if (AgentManagerPanel.currentPanel) {
+      AgentManagerPanel.currentPanel._panel.reveal(column);
+      AgentManagerPanel.currentPanel._sendUpdate();
+      return;
+    }
+
+    const panel = vscode.window.createWebviewPanel(
+      AgentManagerPanel.viewType,
+      'Claude Agent Manager',
+      column,
+      {
+        enableScripts: true,
+        localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'media')],
+        retainContextWhenHidden: true,
+      }
+    );
+
+    AgentManagerPanel.currentPanel = new AgentManagerPanel(panel, context);
+  }
+
+  private constructor(
+    panel: vscode.WebviewPanel,
+    context: vscode.ExtensionContext
+  ) {
+    this._panel = panel;
+    this._context = context;
+
+    this._panel.webview.html = this._getHtml(this._panel.webview);
+
+    // Send initial data after a tick so the webview JS has loaded
+    setTimeout(() => this._sendUpdate(), 100);
+
+    this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
+
+    this._panel.onDidChangeViewState(
+      (e) => {
+        if (e.webviewPanel.visible) { this._sendUpdate(); }
+      },
+      null,
+      this._disposables
+    );
+
+    this._panel.webview.onDidReceiveMessage(
+      (message) => {
+        switch (message.command) {
+          case 'openFolder':
+            if (message.path) {
+              this._openFolder(message.path, message.newWindow ?? false);
+            }
+            break;
+          case 'refresh':
+            this._sendUpdate();
+            break;
+          case 'togglePin':
+            if (message.key) { this._togglePin(message.key); }
+            break;
+          case 'updateSettings':
+            if (message.settings) { this._updateSettings(message.settings); }
+            break;
+          case 'loadConversation':
+            if (message.projectKey && message.sessionId) {
+              const messages = readConversation(
+                message.projectKey,
+                message.sessionId,
+                message.agentId
+              );
+              this._panel.webview.postMessage({
+                command: 'conversation',
+                messages,
+                sessionId: message.sessionId,
+                agentId: message.agentId,
+              });
+            }
+            break;
+        }
+      },
+      null,
+      this._disposables
+    );
+
+    // Auto-refresh every 30 seconds when visible
+    this._refreshTimer = setInterval(() => {
+      if (this._panel.visible) { this._sendUpdate(); }
+    }, 30000);
+  }
+
+  private _openFolder(folderPath: string, newWindow: boolean): void {
+    vscode.commands.executeCommand(
+      'vscode.openFolder',
+      vscode.Uri.file(folderPath),
+      { forceNewWindow: newWindow }
+    );
+  }
+
+  private _getPinnedKeys(): string[] {
+    return this._context.globalState.get<string[]>('pinnedProjectKeys', []);
+  }
+
+  private _getSettings(): ManagerSettings {
+    return this._context.globalState.get<ManagerSettings>('managerSettings', DEFAULT_SETTINGS);
+  }
+
+  private _togglePin(key: string): void {
+    const pinned = new Set(this._getPinnedKeys());
+    if (pinned.has(key)) {
+      pinned.delete(key);
+    } else {
+      pinned.add(key);
+    }
+    this._context.globalState.update('pinnedProjectKeys', [...pinned]);
+    this._sendUpdate();
+  }
+
+  private _updateSettings(settings: ManagerSettings): void {
+    this._context.globalState.update('managerSettings', settings);
+  }
+
+  private _sendUpdate(): void {
+    const projects = readClaudeProjects();
+    const pinnedKeys = this._getPinnedKeys();
+    const settings = this._getSettings();
+    this._panel.webview.postMessage({ command: 'update', projects, pinnedKeys, settings });
+  }
+
+  private _getHtml(webview: vscode.Webview): string {
+    const scriptUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this._context.extensionUri, 'media', 'main.js')
+    );
+    const styleUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this._context.extensionUri, 'media', 'style.css')
+    );
+    const nonce = getNonce();
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+  <link href="${styleUri}" rel="stylesheet">
+  <title>Agent Manager</title>
+</head>
+<body>
+  <div id="app">
+    <!-- ── Left Sidebar ── -->
+    <div id="sidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-title">Agent Manager</span>
+        <div class="sidebar-actions">
+          <span class="last-updated" id="last-updated"></span>
+          <button class="icon-btn" id="refresh-btn" title="Refresh">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 2.5a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1 0-1h1.79A5.5 5.5 0 1 0 13.5 8a.5.5 0 0 1 1 0 6.5 6.5 0 1 1-2.035-4.715L13.5 2.5z"/></svg>
+          </button>
+          <div class="settings-wrap">
+            <button class="icon-btn" id="settings-btn" title="Settings">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M6.562 1.94a1.5 1.5 0 0 1 2.876 0l.213.806a.5.5 0 0 0 .691.305l.763-.357a1.5 1.5 0 0 1 2.035 2.035l-.357.763a.5.5 0 0 0 .305.691l.806.213a1.5 1.5 0 0 1 0 2.876l-.806.213a.5.5 0 0 0-.305.691l.357.763a1.5 1.5 0 0 1-2.035 2.035l-.763-.357a.5.5 0 0 0-.691.305l-.213.806a1.5 1.5 0 0 1-2.876 0l-.213-.806a.5.5 0 0 0-.691-.305l-.763.357a1.5 1.5 0 0 1-2.035-2.035l.357-.763a.5.5 0 0 0-.305-.691l-.806-.213a1.5 1.5 0 0 1 0-2.876l.806-.213a.5.5 0 0 0 .305-.691l-.357-.763a1.5 1.5 0 0 1 2.035-2.035l.763.357a.5.5 0 0 0 .691-.305l.213-.806zM8 10.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>
+            </button>
+            <div class="settings-panel" id="settings-panel">
+              <div class="settings-title">Notification Settings</div>
+              <label class="settings-row">
+                <input type="checkbox" id="sound-enabled" />
+                <span>Sound when waiting for input</span>
+              </label>
+              <div class="settings-row repeat-row">
+                <label for="sound-repeat">Repeat every</label>
+                <select id="sound-repeat">
+                  <option value="0">Never</option>
+                  <option value="30">30s</option>
+                  <option value="60">1 min</option>
+                  <option value="120">2 min</option>
+                  <option value="300">5 min</option>
+                </select>
+              </div>
+              <button class="settings-test-btn" id="test-sound-btn">Test sound</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="search-wrap">
+        <svg class="search-icon" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+        </svg>
+        <input type="text" id="search" placeholder="Filter projects…" autocomplete="off" spellcheck="false" />
+        <button class="clear-btn" id="clear-search" title="Clear">&times;</button>
+      </div>
+
+      <div class="filter-bar" id="filter-bar">
+        <button class="filter-chip selected" data-filter="all">All</button>
+        <button class="filter-chip" data-filter="active">Active</button>
+        <button class="filter-chip" data-filter="waiting">Waiting</button>
+        <button class="filter-chip" data-filter="pinned">Pinned</button>
+      </div>
+
+      <div id="projects-container">
+        <div class="loading">
+          <div class="spinner"></div>
+          Loading…
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Main Conversation Panel ── -->
+    <div id="main-panel">
+      <div id="conversation-header">
+        <span id="conv-breadcrumb">Select a session to view its conversation</span>
+      </div>
+      <div id="conversation-container">
+        <div class="conv-empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="conv-empty-icon">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          <p>Click on a session or agent in the sidebar to view the conversation.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script nonce="${nonce}" src="${scriptUri}"></script>
+</body>
+</html>`;
+  }
+
+  public dispose(): void {
+    AgentManagerPanel.currentPanel = undefined;
+    if (this._refreshTimer) { clearInterval(this._refreshTimer); }
+    this._panel.dispose();
+    while (this._disposables.length) {
+      this._disposables.pop()?.dispose();
+    }
+  }
+}
+
+function getNonce(): string {
+  const chars =
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  return Array.from({ length: 32 }, () =>
+    chars.charAt(Math.floor(Math.random() * chars.length))
+  ).join('');
+}

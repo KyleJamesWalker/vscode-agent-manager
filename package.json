@@ -1,0 +1,48 @@
+{
+  "name": "vscode-agent-manager",
+  "displayName": "Claude Agent Manager",
+  "description": "Track Claude Code agents and sessions across all your workspaces",
+  "version": "0.1.0",
+  "publisher": "kyle-walker",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "keywords": ["claude", "agents", "ai", "workspace"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension",
+  "contributes": {
+    "commands": [
+      {
+        "command": "claudeAgentManager.openPanel",
+        "title": "Claude: Open Agent Manager",
+        "icon": "$(robot)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "claudeAgentManager.openPanel",
+        "key": "ctrl+shift+a",
+        "mac": "cmd+shift+a"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "claudeAgentManager.openPanel"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  }
+}
