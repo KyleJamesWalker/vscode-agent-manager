@@ -907,12 +907,34 @@ button {
   margin: 4px 0;
 }
 
-/* ── Text Formatting ──────────────────────────────────────────────────────── */
+/* ── Text Formatting (Markdown) ───────────────────────────────────────────── */
 .msg-text {
   word-break: break-word;
 }
 
-.code-block {
+.msg-text > *:first-child { margin-top: 0; }
+.msg-text > *:last-child  { margin-bottom: 0; }
+
+.msg-text h1, .msg-text h2, .msg-text h3,
+.msg-text h4, .msg-text h5, .msg-text h6 {
+  margin: 16px 0 8px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--vscode-foreground);
+}
+
+.msg-text h1 { font-size: 1.4em; border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.15)); padding-bottom: 4px; }
+.msg-text h2 { font-size: 1.2em; border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.1)); padding-bottom: 3px; }
+.msg-text h3 { font-size: 1.05em; }
+.msg-text h4 { font-size: 1em; }
+.msg-text h5 { font-size: 0.95em; }
+.msg-text h6 { font-size: 0.9em; opacity: 0.8; }
+
+.msg-text p {
+  margin: 6px 0;
+}
+
+.msg-text pre {
   background: var(--vscode-textBlockQuote-background, rgba(128,128,128,0.1));
   border: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.12));
   border-radius: 4px;
@@ -925,12 +947,91 @@ button {
   white-space: pre;
 }
 
-.inline-code {
+.msg-text pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+}
+
+.msg-text code {
   background: var(--vscode-textBlockQuote-background, rgba(128,128,128,0.12));
   padding: 1px 5px;
   border-radius: 3px;
   font-family: var(--vscode-editor-font-family, monospace);
   font-size: 12px;
+}
+
+.msg-text blockquote {
+  border-left: 3px solid var(--vscode-textBlockQuote-border, rgba(128,128,128,0.3));
+  background: var(--vscode-textBlockQuote-background, rgba(128,128,128,0.06));
+  margin: 8px 0;
+  padding: 6px 14px;
+  color: var(--vscode-foreground);
+  opacity: 0.85;
+}
+
+.msg-text blockquote > *:first-child { margin-top: 0; }
+.msg-text blockquote > *:last-child  { margin-bottom: 0; }
+
+.msg-text ul, .msg-text ol {
+  margin: 6px 0;
+  padding-left: 24px;
+}
+
+.msg-text li {
+  margin: 2px 0;
+}
+
+.msg-text li > p {
+  margin: 2px 0;
+}
+
+.msg-text hr {
+  border: none;
+  border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.2));
+  margin: 12px 0;
+}
+
+.msg-text a {
+  color: var(--vscode-textLink-foreground, #4fc1ff);
+  text-decoration: none;
+}
+
+.msg-text a:hover {
+  text-decoration: underline;
+}
+
+.msg-text table {
+  border-collapse: collapse;
+  margin: 8px 0;
+  width: 100%;
+  font-size: 12px;
+}
+
+.msg-text th, .msg-text td {
+  border: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.2));
+  padding: 4px 10px;
+  text-align: left;
+}
+
+.msg-text th {
+  background: var(--vscode-textBlockQuote-background, rgba(128,128,128,0.1));
+  font-weight: 600;
+}
+
+.msg-text img {
+  max-width: 100%;
+  border-radius: 4px;
+}
+
+.msg-text del {
+  opacity: 0.6;
+}
+
+.msg-text input[type="checkbox"] {
+  margin-right: 6px;
+  accent-color: var(--vscode-textLink-foreground, #4fc1ff);
 }
 
 /* ── Scrollbar ────────────────────────────────────────────────────────────── */

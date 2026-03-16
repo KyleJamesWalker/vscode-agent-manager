@@ -1,4 +1,5 @@
 // @ts-check
+/* global marked */
 (function () {
   const vscode = acquireVsCodeApi();
 
@@ -618,19 +619,19 @@
 </div>`;
   }
 
+  // Configure marked for safe rendering
+  const markedInstance = new marked.Marked({
+    breaks: true,
+    gfm: true,
+  });
+
   function formatText(text) {
     if (!text) return '';
-    let s = esc(text);
-    // Code blocks: ```...```
-    s = s.replaceAll(/```(\w*)\n?([\s\S]*?)```/g, '<pre class="code-block"><code>$2</code></pre>');
-    // Inline code: `...`
-    s = s.replaceAll(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
-    // Bold: **...**
-    s = s.replaceAll(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    // Italic: *...*
-    s = s.replaceAll(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
-    // Line breaks
-    s = s.replaceAll('\n', '<br>');
-    return s;
+    try {
+      return markedInstance.parse(text);
+    } catch (e) {
+      console.warn('Markdown parse failed, using plain text fallback', e);
+      return esc(text).replaceAll('\n', '<br>');
+    }
   }
 })();

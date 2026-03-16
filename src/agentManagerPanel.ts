@@ -149,6 +149,9 @@ export class AgentManagerPanel {
   }
 
   private _getHtml(webview: vscode.Webview): string {
+    const markedUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this._context.extensionUri, 'media', 'marked.min.js')
+    );
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._context.extensionUri, 'media', 'main.js')
     );
@@ -241,6 +244,7 @@ export class AgentManagerPanel {
       </div>
     </div>
   </div>
+  <script nonce="${nonce}" src="${markedUri}"></script>
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;
