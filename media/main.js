@@ -585,8 +585,8 @@
   function applySelectedState() {
     if (!selectedSessionId) return;
     const selector = selectedAgentId
-      ? `.tree-subagent[data-agent-id="${selectedAgentId}"]`
-      : `.tree-session[data-session-id="${selectedSessionId}"]`;
+      ? `.tree-subagent[data-agent-id="${CSS.escape(selectedAgentId)}"]`
+      : `.tree-session[data-session-id="${CSS.escape(selectedSessionId)}"]`;
     const el = document.querySelector(selector);
     if (el) el.classList.add('selected');
   }
@@ -1046,7 +1046,7 @@
   /** @param {any} msg */
   function handleSidebarRowUpdate(msg) {
     // Update session row
-    const row = document.querySelector(`.tree-session[data-session-id="${msg.sessionId}"]`);
+    const row = document.querySelector(`.tree-session[data-session-id="${CSS.escape(msg.sessionId)}"]`);
     if (row) {
       const dot = row.querySelector('.status-dot');
       if (dot) dot.className = `status-dot small ${statusClass(msg.lastTimestamp, msg.lastMessageRole)}`;
