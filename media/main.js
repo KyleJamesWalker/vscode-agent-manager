@@ -113,7 +113,7 @@
       handleSidebarRowUpdate(msg);
     }
     if (msg.command === 'terminalStatus') {
-      if (msg.sessionId === currentSessionCwd) {
+      if (msg.cwd === currentSessionCwd) {
         hasLiveTerminal = msg.hasTerminal;
         const focusBtn = document.getElementById('focus-btn');
         if (focusBtn) focusBtn.style.display = hasLiveTerminal ? 'inline-block' : 'none';

@@ -12,11 +12,12 @@ export class TerminalManager {
   private _currentCwd: string | undefined;
   private _scanInterval: ReturnType<typeof setInterval> | undefined;
   private readonly _postMessage: PostMessageFn;
+  private _closeTerminalListener: vscode.Disposable;
 
   constructor(postMessage: PostMessageFn) {
     this._postMessage = postMessage;
     this._startScan();
-    vscode.window.onDidCloseTerminal((closedTerminal) => {
+    this._closeTerminalListener = vscode.window.onDidCloseTerminal((closedTerminal) => {
       for (const [cwd, terminal] of this._cwdToTerminal) {
         if (terminal === closedTerminal) {
           this._cwdToTerminal.delete(cwd);
@@ -66,7 +67,7 @@ export class TerminalManager {
     if (cwd !== undefined) {
       // Immediately post current status so webview is accurate after session switch
       const hasTerminal = this._cwdToTerminal.has(cwd);
-      this._postMessage({ command: 'terminalStatus', sessionId: cwd, hasTerminal });
+      this._postMessage({ command: 'terminalStatus', cwd, hasTerminal });
     }
   }
 
@@ -85,6 +86,7 @@ export class TerminalManager {
 
   dispose(): void {
     this.pauseScan();
+    this._closeTerminalListener.dispose();
   }
 
   // ── Private scan logic ─────────────────────────────────────────────────────
@@ -139,7 +141,7 @@ export class TerminalManager {
       const prev = this._prevHasTerminal.get(this._currentCwd);
       if (hasTerminal !== prev) {
         this._prevHasTerminal.set(this._currentCwd, hasTerminal);
-        this._postMessage({ command: 'terminalStatus', sessionId: this._currentCwd, hasTerminal });
+        this._postMessage({ command: 'terminalStatus', cwd: this._currentCwd, hasTerminal });
       }
     }
   }

@@ -29,7 +29,7 @@ export class AgentManagerPanel {
   private _watchedSessionId: string | undefined;
   private _watchedAgentId: string | undefined;
   // _currentCwd and _currentSessionId are set on every loadConversation and used
-  // by the focusTerminal and sendMessage handlers (wired in a later task).
+  // by the focusTerminal and sendMessage handlers below.
   private _currentCwd: string | undefined;
   private _currentSessionId: string | undefined;
   private _terminalManager: TerminalManager;
@@ -158,7 +158,7 @@ export class AgentManagerPanel {
               });
               break;
             }
-            if (typeof message.text !== 'string' || !message.text) {
+            if (typeof message.text !== 'string' || !message.text.trim()) {
               this._panel.webview.postMessage({
                 command: 'sendMessageResult',
                 success: false,
