@@ -91,7 +91,7 @@ export class AgentManagerPanel {
         switch (message.command) {
           case 'openFolder':
             if (message.path) {
-              this._openFolder(message.path, message.newWindow ?? false);
+              this._openFolder(message.path);
             }
             break;
           case 'refresh':
@@ -136,11 +136,13 @@ export class AgentManagerPanel {
     }, 30000);
   }
 
-  private _openFolder(folderPath: string, newWindow: boolean): void {
+  private _openFolder(folderPath: string): void {
+    const folders = vscode.workspace.workspaceFolders ?? [];
+    const isCurrentWindow = folders.length === 0 || folders.some(f => f.uri.fsPath === folderPath);
     vscode.commands.executeCommand(
       'vscode.openFolder',
       vscode.Uri.file(folderPath),
-      { forceNewWindow: newWindow }
+      { forceNewWindow: !isCurrentWindow }
     );
   }
 

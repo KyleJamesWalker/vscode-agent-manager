@@ -486,8 +486,7 @@
       elTyped.addEventListener('click', (e) => {
         e.stopPropagation();
         const action = elTyped.dataset.action;
-        if (action === 'open') vscode.postMessage({ command: 'openFolder', path: elTyped.dataset.path, newWindow: false });
-        if (action === 'open-new') vscode.postMessage({ command: 'openFolder', path: elTyped.dataset.path, newWindow: true });
+        if (action === 'open') vscode.postMessage({ command: 'openFolder', path: elTyped.dataset.path });
         if (action === 'pin') vscode.postMessage({ command: 'togglePin', key: elTyped.dataset.key });
       });
     });
@@ -657,8 +656,7 @@
     <span class="tree-time">${timeAgo(project.lastActivity)}</span>
     <div class="tree-project-actions">
       <button class="btn-pin${isPinned ? ' pinned' : ''}" data-action="pin" data-key="${esc(project.key)}" title="${isPinned ? 'Unpin' : 'Pin'}">&#9733;</button>
-      <button class="btn-action" data-action="open" data-path="${esc(project.path)}" title="Open here">&#8594;</button>
-      <button class="btn-action" data-action="open-new" data-path="${esc(project.path)}" title="New window">&#8599;</button>
+      <button class="btn-action" data-action="open" data-path="${esc(project.path)}" title="Open project">&#8594;</button>
     </div>
   </div>
   <div class="tree-children">
