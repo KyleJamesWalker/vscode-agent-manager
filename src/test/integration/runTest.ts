@@ -8,8 +8,8 @@ async function main(): Promise<void> {
     // Compiled suite entry — out/test/integration/suite/index.js
     const extensionTestsPath = path.resolve(__dirname, './suite/index');
     await runTests({ extensionDevelopmentPath, extensionTestsPath });
-  } catch {
-    console.error('Failed to run integration tests');
+  } catch (err) {
+    console.error('Failed to run integration tests:', err);
     process.exit(1);
   }
 }
