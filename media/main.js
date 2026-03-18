@@ -416,7 +416,7 @@
     selectedSessionId = sessionId;
     selectedAgentId = agentId;
     selectedProjectKey = projectKey;
-    exportBtn.style.display = '';
+    exportBtn.style.display = 'block';
     exportBtn.disabled = exportInProgress;
 
     // Visual selection
