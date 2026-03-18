@@ -5,6 +5,7 @@ import * as os from 'os';
 import { readClaudeProjects, readConversation } from './claudeReader';
 import { ManagerSettings, ClaudeProject, ClaudeSession } from './types';
 import { exportConversation } from './exporter';
+import { TerminalManager } from './terminalManager';
 
 const DEFAULT_SETTINGS: ManagerSettings = {
   soundEnabled: false,
@@ -31,6 +32,7 @@ export class AgentManagerPanel {
   // by the focusTerminal and sendMessage handlers (wired in a later task).
   private _currentCwd: string | undefined;
   private _currentSessionId: string | undefined;
+  private _terminalManager: TerminalManager;
 
   public static createOrShow(context: vscode.ExtensionContext): void {
     const column =
@@ -74,6 +76,7 @@ export class AgentManagerPanel {
       (e) => {
         if (e.webviewPanel.visible) {
           this._sendUpdate();
+          this._terminalManager.resumeScan();
           // Resume watcher if we had one paused
           const pk = this._watchedProjectKey;
           const sid = this._watchedSessionId;
@@ -84,6 +87,7 @@ export class AgentManagerPanel {
         } else {
           // Pause watcher but keep IDs for resume
           this._pauseFileWatcher();
+          this._terminalManager.pauseScan();
         }
       },
       null,
@@ -115,6 +119,7 @@ export class AgentManagerPanel {
               const sess = proj?.sessions.find((s) => s.sessionId === message.sessionId);
               this._currentCwd = sess?.cwd;
               this._currentSessionId = message.sessionId;
+              this._terminalManager.setCurrentCwd(this._currentCwd);
 
               const messages = readConversation(
                 message.projectKey,
@@ -136,10 +141,47 @@ export class AgentManagerPanel {
               this._handleExportChat(message.projectKey, message.sessionId);
             }
             break;
+          case 'focusTerminal':
+            if (this._currentCwd) {
+              this._terminalManager.focusSession(this._currentCwd);
+            }
+            break;
+          case 'sendMessage':
+            if (!this._currentCwd) {
+              this._panel.webview.postMessage({
+                command: 'sendMessageResult',
+                success: false,
+                error: 'Session has no working directory',
+              });
+              break;
+            }
+            void (async () => {
+              try {
+                if (!this._terminalManager.getTerminalForCwd(this._currentCwd!)) {
+                  await this._terminalManager.resumeSession(
+                    this._currentSessionId ?? '',
+                    this._currentCwd!
+                  );
+                }
+                await this._terminalManager.sendToSession(this._currentCwd!, message.text as string);
+                this._panel.webview.postMessage({ command: 'sendMessageResult', success: true });
+              } catch (e: unknown) {
+                this._panel.webview.postMessage({
+                  command: 'sendMessageResult',
+                  success: false,
+                  error: e instanceof Error ? e.message : String(e),
+                });
+              }
+            })();
+            break;
         }
       },
       null,
       this._disposables
+    );
+
+    this._terminalManager = new TerminalManager((msg) =>
+      this._panel.webview.postMessage(msg)
     );
 
     // Auto-refresh every 30 seconds when visible
@@ -500,6 +542,7 @@ export class AgentManagerPanel {
     AgentManagerPanel.currentPanel = undefined;
     if (this._refreshTimer) { clearInterval(this._refreshTimer); }
     this._teardownFileWatcher();
+    this._terminalManager.dispose();
     this._panel.dispose();
     while (this._disposables.length) {
       this._disposables.pop()?.dispose();
