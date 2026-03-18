@@ -48,7 +48,7 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "lint": "eslint src",
-    "test": "npm run test:unit && npm run test:integration",
+    "test": "npm run compile && npm run test:unit && npm run test:integration",
     "test:unit": "jest",
     "test:integration": "node ./out/test/integration/runTest.js"
   },
