@@ -40,7 +40,44 @@ The project directory name is the filesystem path with `/` replaced by `-`.
 | `lastMessageRole` | `string?` | `"user"` or `"assistant"` — used for waiting detection |
 
 ### SubAgent
-Same shape as `ClaudeSession` but with `agentId` and `slug` instead of `sessionId`/`cwd`/`gitBranch`/`subAgents`.
+| Field | Type | Description |
+|-------|------|-------------|
+| `agentId` | `string` | Filename stem with `agent-` prefix stripped |
+| `slug` | `string?` | Slug from first message with `slug` |
+| `firstPrompt` | `string?` | First non-meta user message (max 200 chars) |
+| `firstTimestamp` | `string?` | Earliest timestamp |
+| `lastTimestamp` | `string?` | Latest timestamp |
+| `messageCount` | `number` | Count of user + assistant messages |
+| `lastMessageRole` | `string?` | `"user"` or `"assistant"` |
+
+### MessageBlock
+Represents one logical block within a conversation message.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | `'text' \| 'tool'` | Block kind |
+| `content` | `string` | Text content or tool name |
+| `toolUseId` | `string?` | Present when `type === 'tool'` |
+| `description` | `string?` | Agent `description` input field, if present |
+| `input` | `string?` | Formatted tool input (human-readable) |
+| `output` | `string?` | Tool result text |
+| `isError` | `boolean?` | Whether the tool result was an error |
+| `preview` | `string?` | Short preview shown in collapsed tool badge |
+
+### ConversationMessage
+| Field | Type | Description |
+|-------|------|-------------|
+| `role` | `'user' \| 'assistant'` | Message role |
+| `blocks` | `MessageBlock[]` | Ordered content blocks |
+| `timestamp` | `string?` | ISO timestamp of the message |
+
+### ManagerSettings
+| Field | Type | Description |
+|-------|------|-------------|
+| `soundEnabled` | `boolean` | Whether to play notification sounds |
+| `soundRepeatSec` | `number` | Repeat interval in seconds (0 = never) |
+| `exportDestination` | `'dialog' \| 'default' \| 'cwd'` | Where to save exported files |
+| `exportToolFormat` | `'compact' \| 'expanded' \| 'omit'` | How tool calls appear in exports |
 
 ## JSONL Message Format (RawMessage)
 

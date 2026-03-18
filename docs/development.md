@@ -26,11 +26,14 @@ Or press **F5** in VSCode to launch the Extension Development Host (uses `.vscod
 src/
   extension.ts          ← Entry point: registers command, activates on startup
   agentManagerPanel.ts  ← Webview panel: singleton, HTML template, message handling
-  claudeReader.ts       ← Data layer: reads ~/.claude/projects/ JSONL files
-  types.ts              ← TypeScript interfaces (ClaudeProject, ClaudeSession, SubAgent)
+  claudeReader.ts       ← Data layer: reads ~/.claude/projects/ JSONL files; exports readConversation
+  exporter.ts           ← Export feature: renders conversations to Markdown files
+  types.ts              ← TypeScript interfaces (ClaudeProject, ClaudeSession, SubAgent,
+                           MessageBlock, ConversationMessage, ManagerSettings)
 media/
   main.js               ← Webview client JS (IIFE, no framework)
   style.css             ← Webview styles
+  marked.min.js         ← Vendored Markdown renderer used in conversation view
 .vscode/
   launch.json           ← F5 debug config
   tasks.json            ← Build task
