@@ -22,6 +22,11 @@ export class AgentManagerPanel {
   private _disposables: vscode.Disposable[] = [];
   private _refreshTimer: ReturnType<typeof setInterval> | undefined;
   private _projects: ClaudeProject[] = [];
+  private _fileWatcher: fs.FSWatcher | undefined;
+  private _watchDebounceTimer: ReturnType<typeof setTimeout> | undefined;
+  private _watchedProjectKey: string | undefined;
+  private _watchedSessionId: string | undefined;
+  private _watchedAgentId: string | undefined;
 
   public static createOrShow(context: vscode.ExtensionContext): void {
     const column =
@@ -63,7 +68,19 @@ export class AgentManagerPanel {
 
     this._panel.onDidChangeViewState(
       (e) => {
-        if (e.webviewPanel.visible) { this._sendUpdate(); }
+        if (e.webviewPanel.visible) {
+          this._sendUpdate();
+          // Resume watcher if we had one paused
+          const pk = this._watchedProjectKey;
+          const sid = this._watchedSessionId;
+          const aid = this._watchedAgentId;
+          if (pk && sid) {
+            this._setupFileWatcher(pk, sid, aid);
+          }
+        } else {
+          // Pause watcher but keep IDs for resume
+          this._pauseFileWatcher();
+        }
       },
       null,
       this._disposables
@@ -99,6 +116,7 @@ export class AgentManagerPanel {
                 sessionId: message.sessionId,
                 agentId: message.agentId,
               });
+              this._setupFileWatcher(message.projectKey, message.sessionId, message.agentId);
             }
             break;
           case 'exportChat':
@@ -155,6 +173,84 @@ export class AgentManagerPanel {
     const pinnedKeys = this._getPinnedKeys();
     const settings = this._getSettings();
     this._panel.webview.postMessage({ command: 'update', projects, pinnedKeys, settings });
+  }
+
+  private _setupFileWatcher(projectKey: string, sessionId: string, agentId?: string): void {
+    this._teardownFileWatcher();
+
+    const projectsDir = path.join(os.homedir(), '.claude', 'projects');
+    const filePath = agentId
+      ? path.join(projectsDir, projectKey, sessionId, 'subagents', `agent-${agentId}.jsonl`)
+      : path.join(projectsDir, projectKey, `${sessionId}.jsonl`);
+
+    if (!fs.existsSync(filePath)) return;
+
+    this._watchedProjectKey = projectKey;
+    this._watchedSessionId = sessionId;
+    this._watchedAgentId = agentId;
+
+    try {
+      this._fileWatcher = fs.watch(filePath, () => {
+        if (this._watchDebounceTimer) { clearTimeout(this._watchDebounceTimer); }
+        this._watchDebounceTimer = setTimeout(() => {
+          this._sendConversationTail();
+        }, 500);
+      });
+    } catch {
+      // fs.watch unavailable — 30s poll is the fallback
+    }
+  }
+
+  /** Close the watcher but preserve watched IDs (for pause/resume on visibility). */
+  private _pauseFileWatcher(): void {
+    if (this._fileWatcher) {
+      this._fileWatcher.close();
+      this._fileWatcher = undefined;
+    }
+    if (this._watchDebounceTimer) {
+      clearTimeout(this._watchDebounceTimer);
+      this._watchDebounceTimer = undefined;
+    }
+  }
+
+  /** Close the watcher AND clear all watched IDs. */
+  private _teardownFileWatcher(): void {
+    this._pauseFileWatcher();
+    this._watchedProjectKey = undefined;
+    this._watchedSessionId = undefined;
+    this._watchedAgentId = undefined;
+  }
+
+  private _sendConversationTail(): void {
+    if (!this._watchedProjectKey || !this._watchedSessionId) return;
+    const messages = readConversation(
+      this._watchedProjectKey,
+      this._watchedSessionId,
+      this._watchedAgentId
+    );
+    this._panel.webview.postMessage({
+      command: 'conversationTail',
+      messages,
+      sessionId: this._watchedSessionId,
+      agentId: this._watchedAgentId,
+    });
+
+    // Targeted sidebar update for the watched session
+    const projects = readClaudeProjects();
+    this._projects = projects;
+    const project = projects.find((p) => p.key === this._watchedProjectKey);
+    if (project) {
+      const session = project.sessions.find((s) => s.sessionId === this._watchedSessionId);
+      if (session) {
+        this._panel.webview.postMessage({
+          command: 'sidebarRowUpdate',
+          sessionId: session.sessionId,
+          lastMessageRole: session.lastMessageRole,
+          lastTimestamp: session.lastTimestamp,
+          messageCount: session.messageCount,
+        });
+      }
+    }
   }
 
   private async _handleExportChat(projectKey: string, sessionId: string): Promise<void> {
@@ -361,6 +457,10 @@ export class AgentManagerPanel {
     <div id="main-panel">
       <div id="conversation-header">
         <span id="conv-breadcrumb">Select a session to view its conversation</span>
+        <span id="live-indicator" class="live-indicator">
+          <span class="live-dot"></span>
+          LIVE
+        </span>
         <button class="export-btn" id="export-btn" title="Export conversation">Export</button>
       </div>
       <div id="conversation-container" tabindex="0">
@@ -382,6 +482,7 @@ export class AgentManagerPanel {
   public dispose(): void {
     AgentManagerPanel.currentPanel = undefined;
     if (this._refreshTimer) { clearInterval(this._refreshTimer); }
+    this._teardownFileWatcher();
     this._panel.dispose();
     while (this._disposables.length) {
       this._disposables.pop()?.dispose();
