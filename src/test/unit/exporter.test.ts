@@ -24,6 +24,7 @@ const baseSession: ClaudeSession = {
   messageCount: 2,
   subAgents: [],
   lastMessageRole: 'assistant',
+  status: 'waiting',
 };
 
 const textMessage = (role: 'user' | 'assistant', text: string): ConversationMessage => ({
@@ -35,8 +36,8 @@ const textMessage = (role: 'user' | 'assistant', text: string): ConversationMess
 describe('deduplicateLabels', () => {
   test('unique slugs map to their own slug', () => {
     const agents: SubAgent[] = [
-      { agentId: 'abc1', slug: 'explore', messageCount: 0 },
-      { agentId: 'abc2', slug: 'build', messageCount: 0 },
+      { agentId: 'abc1', slug: 'explore', messageCount: 0, status: 'idle' },
+      { agentId: 'abc2', slug: 'build', messageCount: 0, status: 'idle' },
     ];
     const map = deduplicateLabels(agents);
     expect(map.get(agents[0])).toBe('explore');
@@ -45,8 +46,8 @@ describe('deduplicateLabels', () => {
 
   test('duplicate slugs get indexed suffixes starting at 2', () => {
     const agents: SubAgent[] = [
-      { agentId: 'abc1', slug: 'build', messageCount: 0 },
-      { agentId: 'abc2', slug: 'build', messageCount: 0 },
+      { agentId: 'abc1', slug: 'build', messageCount: 0, status: 'idle' },
+      { agentId: 'abc2', slug: 'build', messageCount: 0, status: 'idle' },
     ];
     const map = deduplicateLabels(agents);
     expect(map.get(agents[0])).toBe('build');
@@ -55,9 +56,9 @@ describe('deduplicateLabels', () => {
 
   test('three duplicate slugs get -2 and -3 suffixes', () => {
     const agents: SubAgent[] = [
-      { agentId: 'abc1', slug: 'build', messageCount: 0 },
-      { agentId: 'abc2', slug: 'build', messageCount: 0 },
-      { agentId: 'abc3', slug: 'build', messageCount: 0 },
+      { agentId: 'abc1', slug: 'build', messageCount: 0, status: 'idle' },
+      { agentId: 'abc2', slug: 'build', messageCount: 0, status: 'idle' },
+      { agentId: 'abc3', slug: 'build', messageCount: 0, status: 'idle' },
     ];
     const map = deduplicateLabels(agents);
     expect(map.get(agents[0])).toBe('build');
@@ -66,7 +67,7 @@ describe('deduplicateLabels', () => {
   });
 
   test('no slug falls back to first 8 chars of agentId', () => {
-    const agents: SubAgent[] = [{ agentId: 'abcdefgh1234', messageCount: 0 }];
+    const agents: SubAgent[] = [{ agentId: 'abcdefgh1234', messageCount: 0, status: 'idle' }];
     const map = deduplicateLabels(agents);
     expect(map.get(agents[0])).toBe('abcdefgh');
   });
@@ -160,7 +161,7 @@ describe('exportConversation', () => {
   });
 
   test('agent with empty conversation is counted as skipped', () => {
-    const agent: SubAgent = { agentId: 'abc1', slug: 'explore', messageCount: 0 };
+    const agent: SubAgent = { agentId: 'abc1', slug: 'explore', messageCount: 0, status: 'idle' };
     const params: ExportParams = {
       ...baseParams,
       session: { ...baseSession, subAgents: [agent] },
@@ -173,7 +174,7 @@ describe('exportConversation', () => {
   });
 
   test('agent file is written with back-link to root', () => {
-    const agent: SubAgent = { agentId: 'abc1', slug: 'explore', messageCount: 1 };
+    const agent: SubAgent = { agentId: 'abc1', slug: 'explore', messageCount: 1, status: 'idle' };
     const params: ExportParams = {
       ...baseParams,
       session: { ...baseSession, subAgents: [agent] },
@@ -188,7 +189,7 @@ describe('exportConversation', () => {
   });
 
   test('root file links to agent sub-file', () => {
-    const agent: SubAgent = { agentId: 'abc1', slug: 'explore', messageCount: 1 };
+    const agent: SubAgent = { agentId: 'abc1', slug: 'explore', messageCount: 1, status: 'idle' };
     const params: ExportParams = {
       ...baseParams,
       session: { ...baseSession, subAgents: [agent] },

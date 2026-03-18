@@ -230,3 +230,46 @@ describe('readClaudeProjects', () => {
     expect(projects[0].displayName).toBe('work');
   });
 });
+
+describe('deriveStatus (via readClaudeProjects)', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const recentTs = () => new Date().toISOString();
+
+  function setupSingleProject(jsonlContent: string): void {
+    jest.mocked(fs.existsSync).mockImplementation((p) => p === PROJECTS);
+    jest.mocked(fs.readdirSync)
+      .mockReturnValueOnce(['proj1'] as any)
+      .mockReturnValueOnce(['session.jsonl'] as any);
+    jest.mocked(fs.statSync).mockReturnValue({ isDirectory: () => true } as any);
+    jest.mocked(fs.readFileSync).mockReturnValue(jsonlContent);
+  }
+
+  test('active when last message is user', () => {
+    setupSingleProject(
+      JSON.stringify({ type: 'user', timestamp: recentTs(), cwd: '/work', message: { content: 'hello world' } })
+    );
+    const projects = readClaudeProjects();
+    expect(projects[0].sessions[0].status).toBe('active');
+  });
+
+  test('waiting when last message is assistant with text content', () => {
+    const lines = [
+      JSON.stringify({ type: 'user', timestamp: recentTs(), cwd: '/work', message: { content: 'hello world' } }),
+      JSON.stringify({ type: 'assistant', timestamp: recentTs(), message: { content: [{ type: 'text', text: 'Done' }] } }),
+    ].join('\n');
+    setupSingleProject(lines);
+    const projects = readClaudeProjects();
+    expect(projects[0].sessions[0].status).toBe('waiting');
+  });
+
+  test('thinking when last assistant message ends with tool_use', () => {
+    const lines = [
+      JSON.stringify({ type: 'user', timestamp: recentTs(), cwd: '/work', message: { content: 'hello world' } }),
+      JSON.stringify({ type: 'assistant', timestamp: recentTs(), message: { content: [{ type: 'tool_use', id: 'tu1', name: 'Read', input: {} }] } }),
+    ].join('\n');
+    setupSingleProject(lines);
+    const projects = readClaudeProjects();
+    expect(projects[0].sessions[0].status).toBe('thinking');
+  });
+});
