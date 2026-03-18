@@ -7,6 +7,7 @@ type PostMessageFn = (msg: unknown) => void;
 
 export class TerminalManager {
   private _cwdToTerminal = new Map<string, vscode.Terminal>();
+  private _explicitCwds = new Set<string>();  // CWDs tracked via resumeSession
   private _prevHasTerminal = new Map<string, boolean>();
   private _currentCwd: string | undefined;
   private _scanInterval: ReturnType<typeof setInterval> | undefined;
@@ -15,6 +16,15 @@ export class TerminalManager {
   constructor(postMessage: PostMessageFn) {
     this._postMessage = postMessage;
     this._startScan();
+    vscode.window.onDidCloseTerminal((closedTerminal) => {
+      for (const [cwd, terminal] of this._cwdToTerminal) {
+        if (terminal === closedTerminal) {
+          this._cwdToTerminal.delete(cwd);
+          this._explicitCwds.delete(cwd);
+          break;
+        }
+      }
+    });
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────
@@ -30,6 +40,7 @@ export class TerminalManager {
     });
     terminal.sendText(`claude --resume ${sessionId}`);
     this._cwdToTerminal.set(cwd, terminal);
+    this._explicitCwds.add(cwd);
     // Allow Claude to reach its interactive prompt before callers send text
     await new Promise<void>((resolve) => setTimeout(resolve, 2000));
     return terminal;
@@ -116,6 +127,12 @@ export class TerminalManager {
   }
 
   private _updateTerminalMap(newMap: Map<string, vscode.Terminal>): void {
+    // Preserve explicitly-created terminals not yet visible to pgrep
+    for (const [cwd, terminal] of this._cwdToTerminal) {
+      if (this._explicitCwds.has(cwd) && !newMap.has(cwd)) {
+        newMap.set(cwd, terminal);
+      }
+    }
     this._cwdToTerminal = newMap;
     if (this._currentCwd) {
       const hasTerminal = newMap.has(this._currentCwd);
