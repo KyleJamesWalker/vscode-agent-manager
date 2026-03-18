@@ -9,5 +9,5 @@
     "skipLibCheck": true,
     "lib": ["ES2021"]
   },
-  "exclude": ["node_modules", ".vscode-test", "out"]
+  "exclude": ["node_modules", ".vscode-test", "out", "src/test"]
 }
