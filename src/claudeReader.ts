@@ -79,6 +79,17 @@ function deriveStatus(
   if (lastContentBlockType === 'tool_use') return 'thinking';
   return 'waiting';
 }
+// Note: 'recent' is not returned here — it is a time-based overlay applied in the
+// webview's statusClass() function and does not come from the parsed message content.
+
+function getLastContentBlockType(msg: { type: string; message?: { content?: unknown } }): string | undefined {
+  if (msg.type !== 'assistant') return undefined;
+  const content = msg.message?.content;
+  if (Array.isArray(content) && content.length > 0) {
+    return (content[content.length - 1] as { type?: string }).type;
+  }
+  return undefined;
+}
 
 function parseSubAgent(agentFilePath: string): SubAgent | null {
   const messages = parseJsonlFile(agentFilePath);
@@ -110,14 +121,7 @@ function parseSubAgent(agentFilePath: string): SubAgent | null {
     if (msg.type === 'user' || msg.type === 'assistant') {
       messageCount++;
       lastMessageRole = msg.type;
-      if (msg.type === 'assistant') {
-        const content = msg.message?.content;
-        if (Array.isArray(content) && content.length > 0) {
-          lastContentBlockType = content[content.length - 1].type;
-        } else {
-          lastContentBlockType = undefined;
-        }
-      }
+      lastContentBlockType = getLastContentBlockType(msg);
     }
   }
 
@@ -162,14 +166,7 @@ function parseSession(
     if (msg.type === 'user' || msg.type === 'assistant') {
       messageCount++;
       lastMessageRole = msg.type;
-      if (msg.type === 'assistant') {
-        const content = msg.message?.content;
-        if (Array.isArray(content) && content.length > 0) {
-          lastContentBlockType = content[content.length - 1].type;
-        } else {
-          lastContentBlockType = undefined;
-        }
-      }
+      lastContentBlockType = getLastContentBlockType(msg);
     }
   }
 
