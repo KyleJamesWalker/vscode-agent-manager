@@ -370,7 +370,7 @@ export class AgentManagerPanel {
     <!-- ── Left Sidebar ── -->
     <div id="sidebar">
       <div class="sidebar-header">
-        <span class="sidebar-title">Agent Manager</span>
+        <span class="sidebar-title" title="Keyboard: j/k to navigate, ? for help">Agent Manager</span>
         <div class="sidebar-actions">
           <span class="last-updated" id="last-updated"></span>
           <button class="icon-btn" id="refresh-btn" title="Refresh">

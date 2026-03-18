@@ -784,6 +784,165 @@
     pill.textContent = `${total} new message${total === 1 ? '' : 's'}`;
   }
 
+  /** @returns {{ el: HTMLElement, type: string, projectEl?: HTMLElement }[]} */
+  function getFlatNavigationList() {
+    /** @type {{ el: HTMLElement, type: string, projectEl?: HTMLElement }[]} */
+    const items = [];
+    document.querySelectorAll('.tree-project').forEach((proj) => {
+      const hdr = proj.querySelector('.tree-project-header');
+      if (hdr) items.push({ el: /** @type {HTMLElement} */ (hdr), type: 'project', projectEl: /** @type {HTMLElement} */ (proj) });
+      if (!proj.classList.contains('collapsed')) {
+        proj.querySelectorAll('.tree-session').forEach((sess) => {
+          items.push({ el: /** @type {HTMLElement} */ (sess), type: 'session' });
+          sess.querySelectorAll('.tree-subagent').forEach((sub) => {
+            items.push({ el: /** @type {HTMLElement} */ (sub), type: 'subagent' });
+          });
+        });
+      }
+    });
+    return items;
+  }
+
+  /** @param {number} index */
+  function setFocusedItem(index) {
+    const items = getFlatNavigationList();
+    document.querySelectorAll('.focused').forEach((el) => el.classList.remove('focused'));
+    if (index < 0 || index >= items.length) { focusedIndex = -1; return; }
+    focusedIndex = index;
+    items[index].el.classList.add('focused');
+    items[index].el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  function moveFocus(delta) {
+    const items = getFlatNavigationList();
+    if (items.length === 0) return;
+    let next = focusedIndex + delta;
+    if (next < 0) next = 0;
+    if (next >= items.length) next = items.length - 1;
+    setFocusedItem(next);
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (document.activeElement === searchInput) {
+      if (e.key === 'Escape') { searchInput.blur(); sidebarHasFocus = true; e.preventDefault(); }
+      return;
+    }
+    if (helpOverlayVisible) {
+      if (e.key === 'Escape') { hideHelpOverlay(); e.preventDefault(); }
+      return;
+    }
+
+    // Vim bindings only active when sidebar has focus (spec requirement)
+    if (!sidebarHasFocus && e.key !== 'Tab' && e.key !== '?') return;
+
+    const items = getFlatNavigationList();
+
+    switch (e.key) {
+      case 'j':
+        e.preventDefault(); sidebarHasFocus = true; moveFocus(1); break;
+      case 'k':
+        e.preventDefault(); sidebarHasFocus = true; moveFocus(-1); break;
+      case 'h': {
+        e.preventDefault();
+        if (focusedIndex < 0 || focusedIndex >= items.length) break;
+        const item = items[focusedIndex];
+        if (item.type === 'project') { item.projectEl.classList.add('collapsed'); }
+        else { for (let i = focusedIndex - 1; i >= 0; i--) { if (items[i].type === 'project') { setFocusedItem(i); break; } } }
+        break;
+      }
+      case 'l': {
+        e.preventDefault();
+        if (focusedIndex < 0 || focusedIndex >= items.length) break;
+        const item = items[focusedIndex];
+        if (item.type === 'project') {
+          if (item.projectEl.classList.contains('collapsed')) { item.projectEl.classList.remove('collapsed'); }
+          else { moveFocus(1); }
+        }
+        break;
+      }
+      case 'Enter': {
+        e.preventDefault();
+        if (focusedIndex < 0 || focusedIndex >= items.length) break;
+        const item = items[focusedIndex];
+        if (item.type === 'session' || item.type === 'subagent') item.el.click();
+        break;
+      }
+      case 'Escape': {
+        e.preventDefault();
+        selectedSessionId = null; selectedAgentId = null; selectedProjectKey = null;
+        exportBtn.style.display = 'none';
+        document.querySelectorAll('.tree-session, .tree-subagent').forEach((r) => r.classList.remove('selected'));
+        document.getElementById('conversation-container').innerHTML =
+          '<div class="conv-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="conv-empty-icon"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><p>Click on a session or agent in the sidebar to view the conversation.</p></div>';
+        document.getElementById('conv-breadcrumb').textContent = 'Select a session to view its conversation';
+        deactivateLiveIndicator(); sidebarHasFocus = true;
+        break;
+      }
+      case 'p': {
+        e.preventDefault();
+        if (focusedIndex < 0 || focusedIndex >= items.length) break;
+        const projEl = items[focusedIndex].type === 'project' ? items[focusedIndex].projectEl : items[focusedIndex].el.closest('.tree-project');
+        if (projEl) { const key = projEl.dataset.key; if (key) vscode.postMessage({ command: 'togglePin', key }); }
+        break;
+      }
+      case 'g': {
+        const now = Date.now();
+        if (now - lastGPress < 500) { e.preventDefault(); setFocusedItem(0); lastGPress = 0; }
+        else { lastGPress = now; }
+        break;
+      }
+      case 'G':
+        e.preventDefault(); setFocusedItem(items.length - 1); break;
+      case '/':
+        e.preventDefault(); searchInput.focus(); sidebarHasFocus = false; break;
+      case '?':
+        e.preventDefault(); showHelpOverlay(); break;
+      case 'Tab':
+        e.preventDefault();
+        sidebarHasFocus = !sidebarHasFocus;
+        if (sidebarHasFocus) {
+          document.getElementById('conversation-container').blur();
+        } else {
+          document.querySelectorAll('.focused').forEach((el) => el.classList.remove('focused'));
+          document.getElementById('conversation-container').focus();
+        }
+        break;
+    }
+  });
+
+  function showHelpOverlay() {
+    if (helpOverlayVisible) return;
+    helpOverlayVisible = true;
+    const overlay = document.createElement('div');
+    overlay.className = 'help-overlay';
+    overlay.innerHTML = `
+    <div class="help-modal">
+      <div class="help-title">Keyboard Shortcuts</div>
+      <div class="help-grid">
+        <div class="help-key">j / k</div><div class="help-desc">Navigate up / down</div>
+        <div class="help-key">h</div><div class="help-desc">Collapse / go to parent</div>
+        <div class="help-key">l</div><div class="help-desc">Expand / go to first child</div>
+        <div class="help-key">Enter</div><div class="help-desc">Open conversation</div>
+        <div class="help-key">Escape</div><div class="help-desc">Deselect / close overlay</div>
+        <div class="help-key">p</div><div class="help-desc">Toggle pin on project</div>
+        <div class="help-key">g g</div><div class="help-desc">Jump to top</div>
+        <div class="help-key">G</div><div class="help-desc">Jump to bottom</div>
+        <div class="help-key">/</div><div class="help-desc">Focus search</div>
+        <div class="help-key">?</div><div class="help-desc">This help</div>
+        <div class="help-key">Tab</div><div class="help-desc">Switch sidebar / conversation</div>
+      </div>
+      <div class="help-dismiss">Press Escape to close</div>
+    </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) hideHelpOverlay(); });
+  }
+
+  function hideHelpOverlay() {
+    helpOverlayVisible = false;
+    const overlay = document.querySelector('.help-overlay');
+    if (overlay) overlay.remove();
+  }
+
   /** @param {any} msg */
   function handleSidebarRowUpdate(msg) {
     // Update session row
