@@ -527,6 +527,8 @@ export class AgentManagerPanel {
           <span class="live-dot"></span>
           LIVE
         </span>
+        <button class="action-btn" id="focus-btn" title="Focus terminal" style="display:none">&#10548; Focus</button>
+        <button class="action-btn" id="send-btn" title="Send message" style="display:none">&#9993; Send</button>
         <button class="export-btn" id="export-btn" title="Export conversation">Export</button>
       </div>
       <div id="conversation-container" tabindex="0">
@@ -536,6 +538,13 @@ export class AgentManagerPanel {
           </svg>
           <p>Click on a session or agent in the sidebar to view the conversation.</p>
         </div>
+      </div>
+      <div id="send-bar">
+        <div id="send-bar-inner">
+          <textarea id="send-input" placeholder="Send a message to Claude…" rows="1" spellcheck="false"></textarea>
+          <button id="send-submit-btn" disabled>Send</button>
+        </div>
+        <div id="send-error"></div>
       </div>
     </div>
   </div>

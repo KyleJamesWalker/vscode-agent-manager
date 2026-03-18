@@ -1263,3 +1263,95 @@ button {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--vscode-scrollbarSlider-hoverBackground, rgba(100,100,100,0.7));
 }
+
+/* ── Action buttons (Focus, Send) ────────────────────────────────────────── */
+.action-btn {
+  padding: 3px 10px;
+  font-size: 11px;
+  border-radius: 3px;
+  background: var(--vscode-button-secondaryBackground, rgba(128,128,128,0.15));
+  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+  border: 1px solid var(--vscode-button-border, rgba(128,128,128,0.3));
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.action-btn:hover {
+  background: var(--vscode-button-secondaryHoverBackground, rgba(128,128,128,0.25));
+}
+
+/* ── Send bar ────────────────────────────────────────────────────────────── */
+#main-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+#send-bar {
+  display: none;
+  flex-shrink: 0;
+  border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.2));
+  padding: 8px 12px;
+  background: var(--vscode-editor-background);
+}
+
+#send-bar.open {
+  display: block;
+}
+
+#send-bar-inner {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+#send-input {
+  flex: 1;
+  resize: none;
+  min-height: 28px;
+  max-height: 88px; /* ~4 lines */
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1.5;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border, rgba(128,128,128,0.3));
+  border-radius: 3px;
+  outline: none;
+  overflow-y: auto;
+}
+
+#send-input:focus {
+  border-color: var(--vscode-focusBorder);
+}
+
+#send-submit-btn {
+  padding: 4px 14px;
+  font-size: 12px;
+  border-radius: 3px;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  align-self: flex-end;
+}
+
+#send-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+#send-error {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--vscode-errorForeground, #f48771);
+  display: none;
+}
+
+#send-error.visible {
+  display: block;
+}
