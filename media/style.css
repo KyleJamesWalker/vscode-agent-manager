@@ -29,13 +29,12 @@ button {
 /* ── Sidebar ─────────────────────────────────────────────────────────────── */
 #sidebar {
   width: 280px;
-  min-width: 240px;
-  max-width: 360px;
   display: flex;
   flex-direction: column;
   background: var(--vscode-sideBar-background, var(--vscode-editor-background));
   border-right: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.2));
   overflow: hidden;
+  transition: width 200ms ease;
 }
 
 .sidebar-header {
@@ -53,7 +52,6 @@ button {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--vscode-sideBarTitle-foreground, var(--vscode-foreground));
-  opacity: 0.9;
 }
 
 .sidebar-actions {
@@ -65,7 +63,6 @@ button {
 .last-updated {
   font-size: 10px;
   color: var(--vscode-descriptionForeground);
-  opacity: 0.6;
 }
 
 .icon-btn {
@@ -170,7 +167,6 @@ button {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--vscode-descriptionForeground);
-  opacity: 0.6;
   margin: 6px 0 3px;
 }
 
@@ -299,7 +295,7 @@ button {
 #projects-container {
   flex: 1;
   overflow-y: auto;
-  padding: 4px 0;
+  padding: 2px 0;
 }
 
 /* ── Loading & Empty ──────────────────────────────────────────────────────── */
@@ -311,7 +307,6 @@ button {
   padding: 30px 16px;
   color: var(--vscode-descriptionForeground);
   font-size: 12px;
-  opacity: 0.7;
 }
 
 .spinner {
@@ -326,44 +321,32 @@ button {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ── Project Card ─────────────────────────────────────────────────────────── */
-.project-card {
-  margin: 4px 6px;
-  border: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.15));
-  border-radius: 5px;
-  overflow: hidden;
-  transition: border-color 0.15s;
+/* ══════════════════════════════════════════════════════════════════════════ */
+/* ── Tree View ─────────────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Project Row ──────────────────────────────────────────────────────────── */
+.tree-project {
+  /* flat list — no card borders, no margin, no border-radius */
 }
 
-.project-card:hover {
-  border-color: var(--vscode-panel-border, rgba(128,128,128,0.2));
-}
-
-.project-card.project-waiting {
-  border-color: rgba(232, 160, 48, 0.25);
-}
-
-.project-card.project-pinned {
+.tree-project.pinned {
   border-left: 2px solid var(--vscode-textLink-foreground, #4fc1ff);
 }
 
-/* ── Project Header ───────────────────────────────────────────────────────── */
-.project-header {
-  padding: 8px 10px 7px;
-  cursor: pointer;
-  user-select: none;
-  background: var(--vscode-sideBarSectionHeader-background, rgba(128,128,128,0.08));
-  transition: background 0.1s;
-}
-
-.project-header:hover {
-  background: var(--vscode-list-hoverBackground, rgba(128,128,128,0.14));
-}
-
-.project-title-row {
+.tree-project-header {
   display: flex;
   align-items: center;
   gap: 6px;
+  padding: 3px 10px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.1s;
+  min-height: 22px;
+}
+
+.tree-project-header:hover {
+  background: var(--vscode-list-hoverBackground, rgba(128,128,128,0.1));
 }
 
 /* ── Collapse Chevron ────────────────────────────────────────────────────── */
@@ -379,13 +362,13 @@ button {
   transition: transform 0.15s;
 }
 
-.project-card:not(.collapsed) .collapse-chevron {
+.tree-project:not(.collapsed) .collapse-chevron {
   transform: rotate(90deg);
 }
 
-.project-name {
+.tree-project-name {
   font-weight: 600;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--vscode-foreground);
   flex: 1;
   white-space: nowrap;
@@ -393,80 +376,26 @@ button {
   text-overflow: ellipsis;
 }
 
-.badge {
-  font-size: 9px;
-  padding: 1px 5px;
-  border-radius: 8px;
-  background: var(--vscode-badge-background, rgba(128,128,128,0.2));
-  color: var(--vscode-badge-foreground, var(--vscode-foreground));
-  white-space: nowrap;
-  font-weight: 500;
-  flex-shrink: 0;
-}
-
-.badge-waiting {
-  background: rgba(232, 160, 48, 0.15);
-  color: #e8a030;
-  animation: pulse 2s ease-in-out infinite;
-}
-
-.project-time {
+.tree-time {
   font-size: 10px;
   color: var(--vscode-descriptionForeground);
   flex-shrink: 0;
-  opacity: 0.7;
-}
-
-.project-path-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 2px;
-}
-
-.project-path {
-  font-size: 10px;
-  color: var(--vscode-descriptionForeground);
-  opacity: 0.6;
-  flex: 1;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-family: var(--vscode-editor-font-family, monospace);
 }
 
-/* ── Project Actions ──────────────────────────────────────────────────────── */
-.project-actions {
+/* ── Project Actions (hover-reveal) ──────────────────────────────────────── */
+.tree-project-actions {
   display: flex;
-  gap: 3px;
+  gap: 2px;
   flex-shrink: 0;
   opacity: 0;
   transition: opacity 0.15s;
 }
 
-.project-header:hover .project-actions { opacity: 1; }
-
-.btn-open, .btn-open-new {
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 3px;
-  background: var(--vscode-button-secondaryBackground, rgba(128,128,128,0.2));
-  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
-  transition: background 0.1s;
-  white-space: nowrap;
-}
-
-.btn-open:hover {
-  background: var(--vscode-button-background, #0e639c);
-  color: var(--vscode-button-foreground, #fff);
-}
-
-.btn-open-new:hover {
-  background: var(--vscode-button-secondaryHoverBackground, rgba(128,128,128,0.3));
-}
+.tree-project-header:hover .tree-project-actions { opacity: 1; }
 
 .btn-pin {
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1;
   padding: 1px 3px;
   border-radius: 3px;
@@ -477,127 +406,122 @@ button {
 }
 
 .btn-pin:hover { opacity: 0.8; }
-.btn-pin.pinned { color: #e8a030; opacity: 1; }
-.project-pinned .btn-pin { opacity: 1; }
+.btn-pin.pinned { color: var(--vscode-editorWarning-foreground, #e8a030); opacity: 1; }
+.tree-project.pinned .btn-pin { opacity: 1; }
 
-/* ── Collapse ─────────────────────────────────────────────────────────────── */
-.project-card.collapsed .sessions-list { display: none; }
-
-/* ── Sessions List ────────────────────────────────────────────────────────── */
-.sessions-list {
-  border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.08));
-}
-
-.sessions-overflow {
-  padding: 3px 10px 4px 28px;
-  font-size: 10px;
+.btn-action {
+  font-size: 11px;
+  line-height: 1;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: transparent;
   color: var(--vscode-descriptionForeground);
   opacity: 0.5;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.btn-action:hover {
+  opacity: 1;
+  background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,0.15));
+}
+
+/* ── Collapse ─────────────────────────────────────────────────────────────── */
+.tree-project.collapsed .tree-children { display: none; }
+
+/* ── Tree Children ────────────────────────────────────────────────────────── */
+.tree-children {
+  /* indent is on child items, not the container */
+}
+
+.tree-overflow {
+  padding: 2px 10px 3px 30px;
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
   font-style: italic;
 }
 
 /* ── Session Row ──────────────────────────────────────────────────────────── */
-.session-row {
-  padding: 5px 10px 4px;
-  border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.05));
+.tree-session {
+  padding: 3px 10px 3px 22px;
   cursor: pointer;
   transition: background 0.1s;
+  border-left: 2px solid transparent;
 }
 
-.session-row:last-child { border-bottom: none; }
-
-.session-row:hover {
+.tree-session:hover {
   background: var(--vscode-list-hoverBackground, rgba(128,128,128,0.08));
 }
 
-.session-row.selected {
+.tree-session.selected {
   background: var(--vscode-list-activeSelectionBackground, rgba(79, 193, 255, 0.12));
+  border-left: 2px solid var(--vscode-focusBorder, #007fd4);
 }
 
-.session-row.session-waiting {
+.tree-session.waiting {
   background: rgba(232, 160, 48, 0.04);
 }
 
-.session-main {
+.tree-session-line1 {
   display: flex;
   align-items: flex-start;
   gap: 6px;
 }
 
-.session-prompt {
+.tree-prompt {
   flex: 1;
   font-size: 11px;
   color: var(--vscode-foreground);
-  opacity: 0.85;
   line-height: 1.35;
-  word-break: break-word;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.session-time {
-  font-size: 10px;
-  color: var(--vscode-descriptionForeground);
-  opacity: 0.6;
-  flex-shrink: 0;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.session-meta {
+.tree-session-line2 {
   display: flex;
   align-items: center;
   gap: 5px;
-  margin-top: 2px;
-  padding-left: 12px;
+  margin-top: 1px;
+  padding-left: 18px;
   flex-wrap: wrap;
 }
 
-.session-branch {
-  font-size: 10px;
-  color: var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d);
-  opacity: 0.8;
-  white-space: nowrap;
-}
-
-.session-msgs {
-  font-size: 10px;
-  color: var(--vscode-descriptionForeground);
-  opacity: 0.6;
-  white-space: nowrap;
-}
-
-.session-waiting-label, .agent-waiting-label {
+.tree-badge-waiting {
   font-size: 9px;
   padding: 0 4px;
   border-radius: 6px;
   background: rgba(232, 160, 48, 0.15);
-  color: #e8a030;
+  color: var(--vscode-editorWarning-foreground, #e8a030);
   font-weight: 500;
+  white-space: nowrap;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.tree-branch {
+  font-size: 10px;
+  color: var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d);
   white-space: nowrap;
 }
 
-.agents-indicator {
+.tree-msgs {
   font-size: 10px;
-  color: var(--vscode-textLink-foreground, #4fc1ff);
-  opacity: 0.8;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
 }
 
-/* ── Subagents List ───────────────────────────────────────────────────────── */
-.subagents-list {
-  display: none;
-  margin: 3px 0 2px 14px;
+.tree-agents {
+  font-size: 10px;
+  color: var(--vscode-textLink-foreground, #4fc1ff);
+}
+
+/* ── Subagents ───────────────────────────────────────────────────────────── */
+.tree-subagents {
+  margin: 2px 0 2px 32px;
   padding: 2px 0;
   border-left: 2px solid var(--vscode-panel-border, rgba(128,128,128,0.15));
 }
 
-.session-row.expanded .subagents-list,
-.session-row.has-agents:hover .subagents-list {
-  display: block;
-}
-
-.subagent-row {
+.tree-subagent {
   display: flex;
   align-items: center;
   gap: 5px;
@@ -606,35 +530,29 @@ button {
   cursor: pointer;
   border-radius: 3px;
   transition: background 0.1s;
+  border-left: 2px solid transparent;
 }
 
-.subagent-row:hover {
+.tree-subagent:hover {
   background: var(--vscode-list-hoverBackground, rgba(128,128,128,0.1));
 }
 
-.subagent-row.selected {
+.tree-subagent.selected {
   background: var(--vscode-list-activeSelectionBackground, rgba(79, 193, 255, 0.12));
+  border-left: 2px solid var(--vscode-focusBorder, #007fd4);
 }
 
-.subagent-row.agent-waiting {
+.tree-subagent.waiting {
   background: rgba(232, 160, 48, 0.04);
 }
 
-.agent-label {
+.tree-agent-label {
   font-style: italic;
   color: var(--vscode-textLink-foreground, #4fc1ff);
-  opacity: 0.85;
   white-space: nowrap;
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.agent-time {
-  font-size: 9px;
-  color: var(--vscode-descriptionForeground);
-  opacity: 0.5;
-  flex-shrink: 0;
 }
 
 /* ── Status Dots ──────────────────────────────────────────────────────────── */
@@ -650,18 +568,18 @@ button {
 .status-dot.tiny  { width: 5px; height: 5px; margin-top: 0; }
 
 .status-dot.active {
-  background: #4ec9b0;
+  background: var(--vscode-testing-iconPassed, #4ec9b0);
   box-shadow: 0 0 0 2px rgba(78, 201, 176, 0.2);
 }
 
 .status-dot.waiting {
-  background: #e8a030;
+  background: var(--vscode-editorWarning-foreground, #e8a030);
   box-shadow: 0 0 0 2px rgba(232, 160, 48, 0.2);
   animation: pulse 1.5s ease-in-out infinite;
 }
 
 .status-dot.recent {
-  background: #cca700;
+  background: var(--vscode-charts-yellow, #cca700);
 }
 
 .status-dot.idle {
@@ -672,6 +590,14 @@ button {
 @keyframes pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.6; transform: scale(0.85); }
+}
+
+/* ── Keyboard Focus Indicator ────────────────────────────────────────────── */
+.tree-project-header.focused,
+.tree-session.focused,
+.tree-subagent.focused {
+  outline: 1px dotted var(--vscode-focusBorder, #007fd4);
+  outline-offset: -1px;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════ */
@@ -700,12 +626,35 @@ button {
 #conv-breadcrumb {
   font-size: 12px;
   color: var(--vscode-descriptionForeground);
-  opacity: 0.6;
   font-family: var(--vscode-editor-font-family, monospace);
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ── LIVE Indicator ──────────────────────────────────────────────────────── */
+.live-indicator {
+  display: none;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--vscode-testing-iconPassed, #4ec9b0);
+  flex-shrink: 0;
+  letter-spacing: 0.04em;
+}
+
+.live-indicator.active {
+  display: flex;
+}
+
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--vscode-testing-iconPassed, #4ec9b0);
+  animation: pulse 1.5s ease-in-out infinite;
 }
 
 .export-btn {
@@ -733,6 +682,18 @@ button {
   flex: 1;
   overflow-y: auto;
   padding: 0;
+  position: relative;
+  outline: none;
+}
+
+/* ── Crossfade Transition ────────────────────────────────────────────────── */
+.conv-crossfade {
+  transition: opacity 150ms ease;
+  opacity: 1;
+}
+
+.conv-crossfade.fading {
+  opacity: 0;
 }
 
 /* ── Conversation Empty State ─────────────────────────────────────────────── */
@@ -775,10 +736,71 @@ button {
 .msg {
   padding: 12px 20px;
   border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.06));
+  border-left: 2px solid transparent;
+  transition: border-left-color 2s ease;
 }
 
 .msg:last-child {
   border-bottom: none;
+}
+
+/* ── New Message Highlight ───────────────────────────────────────────────── */
+.msg.msg-new {
+  border-left-color: var(--vscode-testing-iconPassed, #4ec9b0);
+}
+
+.msg.msg-new.msg-new-faded {
+  border-left-color: transparent;
+}
+
+/* ── New Message Divider ─────────────────────────────────────────────────── */
+.new-msg-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 20px;
+}
+
+.new-msg-divider::before,
+.new-msg-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--vscode-testing-iconPassed, #4ec9b0);
+  opacity: 0.4;
+}
+
+.new-msg-divider span {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--vscode-testing-iconPassed, #4ec9b0);
+}
+
+/* ── New Message Floating Pill ───────────────────────────────────────────── */
+.new-msg-pill {
+  position: sticky;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-block;
+  padding: 5px 14px;
+  border-radius: 16px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--vscode-button-background, #0e639c);
+  color: var(--vscode-button-foreground, #fff);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  z-index: 10;
+  text-align: center;
+  width: fit-content;
+  margin: 0 auto;
+  transition: background 0.15s;
+}
+
+.new-msg-pill:hover {
+  background: var(--vscode-button-hoverBackground, #1177bb);
 }
 
 .msg-header {
@@ -796,17 +818,16 @@ button {
 }
 
 .msg-user .msg-role {
-  color: #d4b88c;
+  color: var(--vscode-gitDecoration-modifiedResourceForeground, #d4b88c);
 }
 
 .msg-assistant .msg-role {
-  color: #6b9eff;
+  color: var(--vscode-textLink-foreground, #6b9eff);
 }
 
 .msg-time {
   font-size: 11px;
   color: var(--vscode-descriptionForeground);
-  opacity: 0.45;
 }
 
 .msg-body {
@@ -820,7 +841,7 @@ button {
 .tool-badge {
   margin: 4px 4px 4px 0;
   border-radius: 6px;
-  background: rgba(128, 128, 128, 0.1);
+  background: var(--vscode-textBlockQuote-background, rgba(128,128,128,0.1));
   cursor: pointer;
   transition: background 0.15s;
   display: inline-flex;
@@ -829,7 +850,8 @@ button {
 }
 
 .tool-badge:hover {
-  background: rgba(128, 128, 128, 0.17);
+  background: var(--vscode-textBlockQuote-background, rgba(128,128,128,0.17));
+  filter: brightness(1.15);
 }
 
 .tool-badge-header {
@@ -848,15 +870,15 @@ button {
 }
 
 .tool-dot.success {
-  background: #4ec9b0;
+  background: var(--vscode-testing-iconPassed, #4ec9b0);
 }
 
 .tool-dot.error {
-  background: #f44747;
+  background: var(--vscode-errorForeground, #f44747);
 }
 
 .tool-dot.pending {
-  background: #e8a030;
+  background: var(--vscode-editorWarning-foreground, #e8a030);
   animation: pulse 1.5s ease-in-out infinite;
 }
 
@@ -865,14 +887,12 @@ button {
   font-size: 12px;
   font-weight: 500;
   color: var(--vscode-foreground);
-  opacity: 0.9;
 }
 
 .tool-preview {
   font-family: var(--vscode-editor-font-family, monospace);
   font-size: 11px;
   color: var(--vscode-descriptionForeground);
-  opacity: 0.7;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -887,7 +907,6 @@ button {
   display: none;
   font-size: 11px;
   color: var(--vscode-descriptionForeground);
-  opacity: 0.7;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -898,14 +917,14 @@ button {
 .tool-badge.expanded {
   display: flex;
   width: 100%;
-  background: rgba(128, 128, 128, 0.06);
-  border: 1px solid rgba(128, 128, 128, 0.12);
+  background: var(--vscode-textBlockQuote-background, rgba(128,128,128,0.06));
+  border: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.12));
   margin: 6px 0;
 }
 
 .tool-badge.expanded .tool-badge-header {
   padding: 6px 14px;
-  border-bottom: 1px solid rgba(128, 128, 128, 0.08);
+  border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.08));
 }
 
 .tool-badge.expanded .tool-desc {
@@ -933,7 +952,6 @@ button {
   font-size: 10px;
   font-weight: 700;
   color: var(--vscode-descriptionForeground);
-  opacity: 0.45;
   min-width: 28px;
   flex-shrink: 0;
   padding-top: 2px;
@@ -945,7 +963,6 @@ button {
   font-size: 12px;
   line-height: 1.45;
   color: var(--vscode-foreground);
-  opacity: 0.85;
   white-space: pre-wrap;
   word-break: break-word;
   margin: 0;
@@ -956,7 +973,7 @@ button {
 
 .tool-io-empty {
   font-style: italic;
-  opacity: 0.5;
+  color: var(--vscode-descriptionForeground);
 }
 
 /* ── Tool badges container ────────────────────────────────────────────────── */
@@ -988,7 +1005,7 @@ button {
 .msg-text h3 { font-size: 1.05em; }
 .msg-text h4 { font-size: 1em; }
 .msg-text h5 { font-size: 0.95em; }
-.msg-text h6 { font-size: 0.9em; opacity: 0.8; }
+.msg-text h6 { font-size: 0.9em; color: var(--vscode-descriptionForeground); }
 
 .msg-text p {
   margin: 6px 0;
@@ -1028,7 +1045,6 @@ button {
   margin: 8px 0;
   padding: 6px 14px;
   color: var(--vscode-foreground);
-  opacity: 0.85;
 }
 
 .msg-text blockquote > *:first-child { margin-top: 0; }
@@ -1086,12 +1102,144 @@ button {
 }
 
 .msg-text del {
-  opacity: 0.6;
+  color: var(--vscode-descriptionForeground);
 }
 
 .msg-text input[type="checkbox"] {
   margin-right: 6px;
   accent-color: var(--vscode-textLink-foreground, #4fc1ff);
+}
+
+/* ── Help Overlay ────────────────────────────────────────────────────────── */
+.help-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.help-modal {
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+  border-radius: 8px;
+  padding: 20px 24px;
+  max-width: 360px;
+  width: 90%;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+
+.help-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  margin-bottom: 14px;
+}
+
+.help-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 16px;
+  font-size: 12px;
+}
+
+.help-key {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  padding: 1px 6px;
+  background: var(--vscode-textBlockQuote-background, rgba(128,128,128,0.1));
+  border-radius: 3px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.help-desc {
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.6;
+}
+
+.help-dismiss {
+  margin-top: 14px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  text-align: center;
+}
+
+/* ── Icon Rail (Narrow/Responsive Mode) ──────────────────────────────────── */
+.icon-rail {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 4px;
+  width: 36px;
+  flex-shrink: 0;
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  border-right: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.2));
+  overflow-y: auto;
+}
+
+.icon-rail-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+
+.icon-rail-dot:hover {
+  transform: scale(1.3);
+}
+
+.icon-rail-dot.active  { background: var(--vscode-testing-iconPassed, #4ec9b0); }
+.icon-rail-dot.waiting { background: var(--vscode-editorWarning-foreground, #e8a030); animation: pulse 1.5s ease-in-out infinite; }
+.icon-rail-dot.recent  { background: var(--vscode-charts-yellow, #cca700); }
+.icon-rail-dot.idle    { background: var(--vscode-descriptionForeground, #666); opacity: 0.35; }
+
+/* ── Sidebar Overlay (Narrow Mode) ───────────────────────────────────────── */
+.sidebar-overlay-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 150;
+}
+
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  border-right: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.2));
+  z-index: 151;
+  box-shadow: 4px 0 16px rgba(0,0,0,0.3);
+  transform: translateX(-100%);
+  transition: transform 200ms ease;
+  overflow: hidden;
+}
+
+.sidebar-overlay.open {
+  transform: translateX(0);
+}
+
+/* ── Narrow Mode ─────────────────────────────────────────────────────────── */
+#app.narrow-mode #sidebar {
+  width: 0;
+  overflow: hidden;
+  border-right: none;
 }
 
 /* ── Scrollbar ────────────────────────────────────────────────────────────── */
