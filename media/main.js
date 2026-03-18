@@ -18,6 +18,12 @@
   let selectedProjectKey = null;
   let exportInProgress = false;
 
+  // Forward declarations for later tasks (Task 3 will declare properly)
+  let focusedIndex = -1;
+  let layoutMode = 'wide';
+  let renderedMessageCount = 0;
+  function deactivateLiveIndicator() {}
+
   // Restore webview-local state
   const saved = vscode.getState();
   if (saved) {
@@ -345,17 +351,14 @@
   // ── Sidebar Render ─────────────────────────────────────────────────────────
   function renderSidebar(projects) {
     const container = document.getElementById('projects-container');
+    focusedIndex = -1; // Reset keyboard focus on re-render
 
-    // Update filter counts
     updateFilterCounts();
 
     if (!projects.length) {
       let msg = 'No Claude projects found.';
-      if (filterText) {
-        msg = 'No projects match your filter.';
-      } else if (activeFilter !== 'all') {
-        msg = `No ${activeFilter} projects.`;
-      }
+      if (filterText) msg = 'No projects match your filter.';
+      else if (activeFilter !== 'all') msg = `No ${activeFilter} projects.`;
       container.innerHTML = `<div class="empty">${msg}</div>`;
       return;
     }
@@ -374,60 +377,60 @@
     });
 
     // Toggle project expand/collapse
-    container.querySelectorAll('.project-header').forEach((hdr) => {
+    container.querySelectorAll('.tree-project-header').forEach((hdr) => {
       hdr.addEventListener('click', (e) => {
         if (e.target.closest('[data-action]')) return;
-        const card = hdr.closest('.project-card');
-        card.classList.toggle('collapsed');
+        const project = hdr.closest('.tree-project');
+        if (project) project.classList.toggle('collapsed');
       });
     });
 
     // Click session to load conversation
-    container.querySelectorAll('.session-row').forEach((row) => {
+    container.querySelectorAll('.tree-session').forEach((row) => {
       row.addEventListener('click', (e) => {
-        // Don't trigger if clicking a subagent row
-        if (e.target.closest('.subagent-row')) return;
+        if (e.target.closest('.tree-subagent')) return;
         const key = row.dataset.projectKey;
         const sid = row.dataset.sessionId;
-        if (key && sid) {
-          selectConversation(key, sid, null, row);
-        }
+        if (key && sid) selectConversation(key, sid, null, row);
       });
     });
 
     // Click subagent to load its conversation
-    container.querySelectorAll('.subagent-row').forEach((row) => {
+    container.querySelectorAll('.tree-subagent').forEach((row) => {
       row.addEventListener('click', (e) => {
         e.stopPropagation();
         const key = row.dataset.projectKey;
         const sid = row.dataset.sessionId;
         const aid = row.dataset.agentId;
-        if (key && sid && aid) {
-          selectConversation(key, sid, aid, row);
-        }
+        if (key && sid && aid) selectConversation(key, sid, aid, row);
       });
     });
 
-    // Re-apply selected state
     applySelectedState();
+
+    // renderIconRail is defined in Task 7 — guard for task-by-task execution
+    const _renderIconRail = /** @type {any} */ (window)['renderIconRail'];
+    if (layoutMode === 'narrow' && typeof _renderIconRail === 'function') _renderIconRail();
   }
 
   function selectConversation(projectKey, sessionId, agentId, rowEl) {
     selectedSessionId = sessionId;
     selectedAgentId = agentId;
     selectedProjectKey = projectKey;
+    renderedMessageCount = 0;
+    deactivateLiveIndicator();
     exportBtn.style.display = 'block';
     exportBtn.disabled = exportInProgress;
 
-    // Visual selection
-    document.querySelectorAll('.session-row, .subagent-row').forEach((r) => r.classList.remove('selected'));
-    if (rowEl) rowEl.classList.add('selected');
+    // Remove existing pill/divider
+    const pill = document.getElementById('new-msg-pill');
+    if (pill) pill.remove();
+    const divider = document.querySelector('.new-msg-divider');
+    if (divider) divider.remove();
 
-    // Expand parent session if selecting a subagent
-    if (agentId && rowEl) {
-      const parentSession = rowEl.closest('.session-row');
-      if (parentSession) parentSession.classList.add('expanded');
-    }
+    // Visual selection
+    document.querySelectorAll('.tree-session, .tree-subagent').forEach((r) => r.classList.remove('selected'));
+    if (rowEl) rowEl.classList.add('selected');
 
     // Show loading in conversation panel
     const convContainer = document.getElementById('conversation-container');
@@ -449,17 +452,10 @@
   function applySelectedState() {
     if (!selectedSessionId) return;
     const selector = selectedAgentId
-      ? `.subagent-row[data-agent-id="${selectedAgentId}"]`
-      : `.session-row[data-session-id="${selectedSessionId}"]`;
+      ? `.tree-subagent[data-agent-id="${selectedAgentId}"]`
+      : `.tree-session[data-session-id="${selectedSessionId}"]`;
     const el = document.querySelector(selector);
-    if (el) {
-      el.classList.add('selected');
-      // Expand parent if subagent
-      if (selectedAgentId) {
-        const parent = el.closest('.session-row');
-        if (parent) parent.classList.add('expanded');
-      }
-    }
+    if (el) el.classList.add('selected');
   }
 
   function updateFilterCounts() {
@@ -496,30 +492,23 @@
     const isPinned = pinnedKeys.has(project.key);
     const recentSessions = project.sessions.slice(0, 8);
     const overflow = project.sessions.length - recentSessions.length;
-    const waiting = isProjectWaiting(project);
 
     return `
-<div class="project-card collapsed${waiting ? ' project-waiting' : ''}${isPinned ? ' project-pinned' : ''}" data-key="${esc(project.key)}">
-  <div class="project-header">
-    <div class="project-title-row">
-      <span class="collapse-chevron"></span>
-      <span class="status-dot ${status}"></span>
-      <span class="project-name">${esc(project.displayName)}</span>
-      ${waiting ? '<span class="badge badge-waiting">waiting</span>' : ''}
-      <span class="project-time">${timeAgo(project.lastActivity)}</span>
-    </div>
-    <div class="project-path-row">
-      <span class="project-path" title="${esc(project.path)}">${esc(project.path)}</span>
-      <div class="project-actions">
-        <button class="btn-pin${isPinned ? ' pinned' : ''}" data-action="pin" data-key="${esc(project.key)}" title="${isPinned ? 'Unpin' : 'Pin'}">&#9733;</button>
-        <button class="btn-open" data-action="open" data-path="${esc(project.path)}" title="Open here">Open</button>
-        <button class="btn-open-new" data-action="open-new" data-path="${esc(project.path)}" title="New window">&#8599;</button>
-      </div>
+<div class="tree-project collapsed${isPinned ? ' pinned' : ''}" data-key="${esc(project.key)}">
+  <div class="tree-project-header" title="${esc(project.path)}">
+    <span class="collapse-chevron"></span>
+    <span class="status-dot ${status}"></span>
+    <span class="tree-project-name">${esc(project.displayName)}</span>
+    <span class="tree-time">${timeAgo(project.lastActivity)}</span>
+    <div class="tree-project-actions">
+      <button class="btn-pin${isPinned ? ' pinned' : ''}" data-action="pin" data-key="${esc(project.key)}" title="${isPinned ? 'Unpin' : 'Pin'}">&#9733;</button>
+      <button class="btn-action" data-action="open" data-path="${esc(project.path)}" title="Open here">&#8594;</button>
+      <button class="btn-action" data-action="open-new" data-path="${esc(project.path)}" title="New window">&#8599;</button>
     </div>
   </div>
-  <div class="sessions-list">
+  <div class="tree-children">
     ${recentSessions.map((s) => renderSession(s, project.key)).join('')}
-    ${overflow > 0 ? `<div class="sessions-overflow">+${overflow} older</div>` : ''}
+    ${overflow > 0 ? `<div class="tree-overflow">+${overflow} older</div>` : ''}
   </div>
 </div>`;
   }
@@ -527,25 +516,24 @@
   function renderSession(session, projectKey) {
     const status = statusClass(session.lastTimestamp, session.lastMessageRole);
     const hasAgents = session.subAgents && session.subAgents.length > 0;
-    const prompt = trunc(session.firstPrompt || '(no prompt)', 80);
+    const prompt = trunc(session.firstPrompt || '(no prompt)', 60);
     const waiting = isItemWaiting(session);
 
     return `
-<div class="session-row${hasAgents ? ' has-agents' : ''}${waiting ? ' session-waiting' : ''}"
+<div class="tree-session${waiting ? ' waiting' : ''}"
      data-project-key="${esc(projectKey)}" data-session-id="${esc(session.sessionId)}">
-  <div class="session-main">
+  <div class="tree-session-line1">
     <span class="status-dot small ${status}"></span>
-    <span class="session-prompt">${esc(prompt)}</span>
-    <span class="session-time">${timeAgo(session.lastTimestamp)}</span>
+    <span class="tree-prompt">${esc(prompt)}</span>
+    <span class="tree-time">${timeAgo(session.lastTimestamp)}</span>
   </div>
-  <div class="session-meta">
-    ${waiting ? '<span class="session-waiting-label">waiting</span>' : ''}
-    ${session.gitBranch ? `<span class="session-branch">${esc(session.gitBranch)}</span>` : ''}
-    ${session.messageCount ? `<span class="session-msgs">${session.messageCount} msgs</span>` : ''}
-    ${hasAgents ? `<span class="agents-indicator">${session.subAgents.length} agent${session.subAgents.length === 1 ? '' : 's'}</span>` : ''}
+  <div class="tree-session-line2">
+    ${waiting ? '<span class="tree-badge-waiting">waiting</span>' : ''}
+    ${session.gitBranch ? `<span class="tree-branch">${esc(session.gitBranch)}</span>` : ''}
+    ${session.messageCount ? `<span class="tree-msgs">${session.messageCount} msgs</span>` : ''}
+    ${hasAgents ? `<span class="tree-agents">${session.subAgents.length} agent${session.subAgents.length === 1 ? '' : 's'}</span>` : ''}
   </div>
-  ${hasAgents ? `
-  <div class="subagents-list">
+  ${hasAgents ? `<div class="tree-subagents">
     ${session.subAgents.map((a) => renderSubAgent(a, projectKey, session.sessionId)).join('')}
   </div>` : ''}
 </div>`;
@@ -557,12 +545,12 @@
     const waiting = isItemWaiting(agent);
 
     return `
-<div class="subagent-row${waiting ? ' agent-waiting' : ''}"
+<div class="tree-subagent${waiting ? ' waiting' : ''}"
      data-project-key="${esc(projectKey)}" data-session-id="${esc(sessionId)}" data-agent-id="${esc(agent.agentId)}">
   <span class="status-dot tiny ${status}"></span>
-  <span class="agent-label">${esc(label)}</span>
-  ${waiting ? '<span class="agent-waiting-label">w</span>' : ''}
-  <span class="agent-time">${timeAgo(agent.lastTimestamp)}</span>
+  <span class="tree-agent-label">${esc(label)}</span>
+  ${waiting ? '<span class="tree-badge-waiting">w</span>' : ''}
+  <span class="tree-time">${timeAgo(agent.lastTimestamp)}</span>
 </div>`;
   }
 
