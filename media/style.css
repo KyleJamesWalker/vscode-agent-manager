@@ -578,6 +578,16 @@ button {
   animation: pulse 1.5s ease-in-out infinite;
 }
 
+.status-dot.thinking {
+  background: #7c6af7;
+  animation: pulse-thinking 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse-thinking {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.75); }
+}
+
 .status-dot.recent {
   background: var(--vscode-charts-yellow, #cca700);
 }

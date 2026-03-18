@@ -271,7 +271,7 @@
   function isItemWaiting(item) {
     if (!item.lastTimestamp) return false;
     const mins = (Date.now() - new Date(item.lastTimestamp).getTime()) / 60000;
-    return mins < 5 && item.lastMessageRole === 'assistant';
+    return mins < 5 && item.status === 'waiting';
   }
 
   function isProjectWaiting(project) {
@@ -363,11 +363,12 @@
     return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   }
 
-  function statusClass(ts, lastMessageRole) {
+  function statusClass(ts, precomputedStatus) {
     if (!ts) return 'idle';
     const mins = (Date.now() - new Date(ts).getTime()) / 60000;
     if (mins < 5) {
-      if (lastMessageRole === 'assistant') return 'waiting';
+      if (precomputedStatus === 'thinking') return 'thinking';
+      if (precomputedStatus === 'waiting') return 'waiting';
       return 'active';
     }
     if (mins < 120) return 'recent';
@@ -669,7 +670,7 @@
   }
 
   function renderSession(session, projectKey) {
-    const status = statusClass(session.lastTimestamp, session.lastMessageRole);
+    const status = statusClass(session.lastTimestamp, session.status);
     const hasAgents = session.subAgents && session.subAgents.length > 0;
     const prompt = trunc(session.firstPrompt || '(no prompt)', 60);
     const waiting = isItemWaiting(session);
@@ -696,7 +697,7 @@
 
   function renderSubAgent(agent, projectKey, sessionId) {
     const label = agent.slug || agent.agentId.slice(0, 8);
-    const status = statusClass(agent.lastTimestamp, agent.lastMessageRole);
+    const status = statusClass(agent.lastTimestamp, agent.status);
     const waiting = isItemWaiting(agent);
 
     return `
@@ -1079,9 +1080,9 @@
     const row = document.querySelector(`.tree-session[data-session-id="${CSS.escape(msg.sessionId)}"]`);
     if (row) {
       const dot = row.querySelector('.status-dot');
-      if (dot) dot.className = `status-dot small ${statusClass(msg.lastTimestamp, msg.lastMessageRole)}`;
+      if (dot) dot.className = `status-dot small ${statusClass(msg.lastTimestamp, msg.status)}`;
 
-      const isWait = isItemWaiting({ lastTimestamp: msg.lastTimestamp, lastMessageRole: msg.lastMessageRole });
+      const isWait = isItemWaiting({ lastTimestamp: msg.lastTimestamp, status: msg.status });
       const line2 = row.querySelector('.tree-session-line2');
       if (line2) {
         const badge = line2.querySelector('.tree-badge-waiting');
