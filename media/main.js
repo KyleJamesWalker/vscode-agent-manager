@@ -7,7 +7,7 @@
   let filterText = '';
   let activeFilter = 'all';
   let pinnedKeys = new Set();
-  let settings = { soundEnabled: false, soundRepeatSec: 0 };
+  let settings = { soundEnabled: false, soundRepeatSec: 0, exportDestination: 'dialog', exportToolFormat: 'compact' };
   let previousWaitingIds = new Set();
   let soundRepeatTimer = null;
   let audioCtx = null;
@@ -15,6 +15,8 @@
   // Currently selected conversation
   let selectedSessionId = null;
   let selectedAgentId = null;
+  let selectedProjectKey = null;
+  let exportInProgress = false;
 
   // Restore webview-local state
   const saved = vscode.getState();
@@ -40,6 +42,10 @@
     }
     if (msg.command === 'conversation') {
       renderConversation(msg.messages, msg.sessionId, msg.agentId);
+    }
+    if (msg.command === 'exportDone') {
+      exportInProgress = false;
+      exportBtn.disabled = false;
     }
   });
 
@@ -92,6 +98,16 @@
     saveState();
   });
 
+  // ── Export button ──────────────────────────────────────────────────────────
+  const exportBtn = document.getElementById('export-btn');
+
+  exportBtn.addEventListener('click', () => {
+    if (exportInProgress || !selectedSessionId || !selectedProjectKey) return;
+    exportInProgress = true;
+    exportBtn.disabled = true;
+    vscode.postMessage({ command: 'exportChat', projectKey: selectedProjectKey, sessionId: selectedSessionId });
+  });
+
   // ── Settings ───────────────────────────────────────────────────────────────
   const settingsBtn = document.getElementById('settings-btn');
   const settingsPanel = document.getElementById('settings-panel');
@@ -125,9 +141,27 @@
     playNotificationSound();
   });
 
+  document.querySelectorAll('input[name="export-dest"]').forEach((radio) => {
+    radio.addEventListener('change', () => {
+      settings.exportDestination = radio.value;
+      pushSettings();
+    });
+  });
+
+  document.querySelectorAll('input[name="export-tool"]').forEach((radio) => {
+    radio.addEventListener('change', () => {
+      settings.exportToolFormat = radio.value;
+      pushSettings();
+    });
+  });
+
   function syncSettingsUI() {
     soundEnabledCb.checked = settings.soundEnabled;
     soundRepeatSel.value = String(settings.soundRepeatSec);
+    const destRadio = document.querySelector(`input[name="export-dest"][value="${settings.exportDestination || 'dialog'}"]`);
+    if (destRadio) destRadio.checked = true;
+    const toolRadio = document.querySelector(`input[name="export-tool"][value="${settings.exportToolFormat || 'compact'}"]`);
+    if (toolRadio) toolRadio.checked = true;
   }
 
   function pushSettings() {
@@ -381,6 +415,9 @@
   function selectConversation(projectKey, sessionId, agentId, rowEl) {
     selectedSessionId = sessionId;
     selectedAgentId = agentId;
+    selectedProjectKey = projectKey;
+    exportBtn.style.display = '';
+    exportBtn.disabled = exportInProgress;
 
     // Visual selection
     document.querySelectorAll('.session-row, .subagent-row').forEach((r) => r.classList.remove('selected'));

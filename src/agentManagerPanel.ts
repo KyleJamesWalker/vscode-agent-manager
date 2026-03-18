@@ -1,14 +1,16 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 import { readClaudeProjects, readConversation } from './claudeReader';
-
-interface ManagerSettings {
-  soundEnabled: boolean;
-  soundRepeatSec: number;
-}
+import { ManagerSettings, ClaudeProject, ClaudeSession } from './types';
+import { exportConversation } from './exporter';
 
 const DEFAULT_SETTINGS: ManagerSettings = {
   soundEnabled: false,
   soundRepeatSec: 0,
+  exportDestination: 'dialog',
+  exportToolFormat: 'compact',
 };
 
 export class AgentManagerPanel {
@@ -19,6 +21,7 @@ export class AgentManagerPanel {
   private readonly _context: vscode.ExtensionContext;
   private _disposables: vscode.Disposable[] = [];
   private _refreshTimer: ReturnType<typeof setInterval> | undefined;
+  private _projects: ClaudeProject[] = [];
 
   public static createOrShow(context: vscode.ExtensionContext): void {
     const column =
@@ -98,6 +101,11 @@ export class AgentManagerPanel {
               });
             }
             break;
+          case 'exportChat':
+            if (message.projectKey && message.sessionId) {
+              this._handleExportChat(message.projectKey, message.sessionId);
+            }
+            break;
         }
       },
       null,
@@ -143,9 +151,101 @@ export class AgentManagerPanel {
 
   private _sendUpdate(): void {
     const projects = readClaudeProjects();
+    this._projects = projects;
     const pinnedKeys = this._getPinnedKeys();
     const settings = this._getSettings();
     this._panel.webview.postMessage({ command: 'update', projects, pinnedKeys, settings });
+  }
+
+  private async _handleExportChat(projectKey: string, sessionId: string): Promise<void> {
+    try {
+      const project = this._projects.find((p) => p.key === projectKey);
+      if (!project) {
+        vscode.window.showErrorMessage('Claude Agent Manager: Project not found.');
+        this._panel.webview.postMessage({ command: 'exportDone' });
+        return;
+      }
+      const session = project.sessions.find((s) => s.sessionId === sessionId);
+      if (!session) {
+        vscode.window.showErrorMessage('Claude Agent Manager: Session not found.');
+        this._panel.webview.postMessage({ command: 'exportDone' });
+        return;
+      }
+
+      const settings = this._getSettings();
+      const outPath = await this._resolveExportPath(session, settings);
+      if (!outPath) {
+        // User cancelled dialog — silent abort
+        this._panel.webview.postMessage({ command: 'exportDone' });
+        return;
+      }
+
+      const result = exportConversation(
+        { projectKey, sessionId, displayName: project.displayName, session, readConversation },
+        settings,
+        outPath,
+      );
+
+      let msg = `Exported to ${result.rootPath}`;
+      if (result.skippedAgents > 0) {
+        msg += ` (${result.skippedAgents} agent(s) could not be read)`;
+      }
+      vscode.window.showInformationMessage(msg);
+    } catch (e: unknown) {
+      vscode.window.showErrorMessage(
+        `Claude Agent Manager: Export failed: ${e instanceof Error ? e.message : String(e)}`
+      );
+    } finally {
+      this._panel.webview.postMessage({ command: 'exportDone' });
+    }
+  }
+
+  private _exportFilename(session: ClaudeSession): string {
+    const raw = session.firstPrompt ?? session.sessionId.slice(0, 8);
+    const slug = raw
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 50);
+    return `${slug}.md`;
+  }
+
+  private async _resolveExportPath(
+    session: ClaudeSession,
+    settings: ManagerSettings,
+  ): Promise<string | undefined> {
+    const filename = this._exportFilename(session);
+
+    if (settings.exportDestination === 'dialog') {
+      return this._showSaveDialog(filename);
+    }
+
+    if (settings.exportDestination === 'cwd') {
+      if (!session.cwd) {
+        return this._showSaveDialog(filename);
+      }
+      return path.join(session.cwd, filename);
+    }
+
+    // 'default'
+    const dir = path.join(os.homedir(), 'Documents', 'claude-exports');
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+    } catch (e: unknown) {
+      vscode.window.showErrorMessage(
+        `Claude Agent Manager: Failed to create export directory: ${e instanceof Error ? e.message : String(e)}`
+      );
+      return undefined;
+    }
+    return path.join(dir, filename);
+  }
+
+  private async _showSaveDialog(filename: string): Promise<string | undefined> {
+    const uri = await vscode.window.showSaveDialog({
+      defaultUri: vscode.Uri.file(path.join(os.homedir(), 'Documents', filename)),
+      filters: { 'Markdown': ['md'] },
+    });
+    return uri?.fsPath;
   }
 
   private _getHtml(webview: vscode.Webview): string {
@@ -201,6 +301,34 @@ export class AgentManagerPanel {
                 </select>
               </div>
               <button class="settings-test-btn" id="test-sound-btn">Test sound</button>
+              <div class="settings-divider"></div>
+              <div class="settings-title">Export Settings</div>
+              <div class="settings-group-label">Destination</div>
+              <label class="settings-radio-row">
+                <input type="radio" name="export-dest" value="dialog" id="export-dest-dialog" />
+                <span>Save As dialog</span>
+              </label>
+              <label class="settings-radio-row">
+                <input type="radio" name="export-dest" value="default" id="export-dest-default" />
+                <span>~/Documents/claude-exports/</span>
+              </label>
+              <label class="settings-radio-row">
+                <input type="radio" name="export-dest" value="cwd" id="export-dest-cwd" />
+                <span>Session working dir</span>
+              </label>
+              <div class="settings-group-label">Tool calls</div>
+              <label class="settings-radio-row">
+                <input type="radio" name="export-tool" value="compact" id="export-tool-compact" />
+                <span>Compact</span>
+              </label>
+              <label class="settings-radio-row">
+                <input type="radio" name="export-tool" value="expanded" id="export-tool-expanded" />
+                <span>Expanded</span>
+              </label>
+              <label class="settings-radio-row">
+                <input type="radio" name="export-tool" value="omit" id="export-tool-omit" />
+                <span>Omit</span>
+              </label>
             </div>
           </div>
         </div>
@@ -233,6 +361,7 @@ export class AgentManagerPanel {
     <div id="main-panel">
       <div id="conversation-header">
         <span id="conv-breadcrumb">Select a session to view its conversation</span>
+        <button class="export-btn" id="export-btn" title="Export conversation">Export</button>
       </div>
       <div id="conversation-container">
         <div class="conv-empty">

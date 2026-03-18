@@ -46,3 +46,10 @@ export interface ConversationMessage {
   blocks: MessageBlock[];
   timestamp?: string;
 }
+
+export interface ManagerSettings {
+  soundEnabled: boolean;
+  soundRepeatSec: number;
+  exportDestination: 'dialog' | 'default' | 'cwd';
+  exportToolFormat: 'compact' | 'expanded' | 'omit';
+}

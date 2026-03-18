@@ -158,6 +158,37 @@ button {
   background: var(--vscode-button-secondaryHoverBackground, rgba(128,128,128,0.3));
 }
 
+.settings-divider {
+  height: 1px;
+  background: var(--vscode-panel-border, rgba(128,128,128,0.2));
+  margin: 10px 0;
+}
+
+.settings-group-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.6;
+  margin: 6px 0 3px;
+}
+
+.settings-radio-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  padding: 2px 0;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+}
+
+.settings-radio-row input[type="radio"] {
+  accent-color: var(--vscode-textLink-foreground, #4fc1ff);
+  cursor: pointer;
+}
+
 /* ── Search ───────────────────────────────────────────────────────────────── */
 .search-wrap {
   position: relative;
@@ -660,6 +691,10 @@ button {
   border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.12));
   flex-shrink: 0;
   background: var(--vscode-editor-background);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 #conv-breadcrumb {
@@ -667,6 +702,31 @@ button {
   color: var(--vscode-descriptionForeground);
   opacity: 0.6;
   font-family: var(--vscode-editor-font-family, monospace);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.export-btn {
+  display: none;
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 3px;
+  background: var(--vscode-button-secondaryBackground, rgba(128,128,128,0.2));
+  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+  flex-shrink: 0;
+  transition: background 0.1s, opacity 0.15s;
+}
+
+.export-btn:hover:not(:disabled) {
+  background: var(--vscode-button-background, #0e639c);
+  color: var(--vscode-button-foreground, #fff);
+}
+
+.export-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 #conversation-container {
