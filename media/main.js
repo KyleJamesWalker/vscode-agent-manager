@@ -31,6 +31,10 @@
   let liveTimeout = null;
   let isUserAtBottom = true;
 
+  // Sidebar expansion state — tracks which project keys are expanded
+  /** @type {Set<string>} */
+  let expandedProjectKeys = new Set();
+
   // Keyboard navigation state
   let sidebarHasFocus = false;
   let lastGPress = 0;
@@ -491,7 +495,13 @@
     container.querySelectorAll('.tree-project-header').forEach((hdr) => {
       hdr.addEventListener('click', (e) => {
         if (/** @type {HTMLElement} */ (e.target).closest('[data-action]')) return;
-        hdr.closest('.tree-project').classList.toggle('collapsed');
+        const proj = hdr.closest('.tree-project');
+        proj.classList.toggle('collapsed');
+        const key = proj.dataset.key;
+        if (key) {
+          if (proj.classList.contains('collapsed')) expandedProjectKeys.delete(key);
+          else expandedProjectKeys.add(key);
+        }
       });
     });
 
@@ -527,6 +537,16 @@
   function renderSidebar(projects) {
     const container = document.getElementById('projects-container');
     focusedIndex = -1; // Reset keyboard focus on re-render
+
+    // Snapshot which projects are currently expanded before replacing DOM
+    container.querySelectorAll('.tree-project:not(.collapsed)').forEach((el) => {
+      const key = el.dataset.key;
+      if (key) expandedProjectKeys.add(key);
+    });
+    container.querySelectorAll('.tree-project.collapsed').forEach((el) => {
+      const key = el.dataset.key;
+      if (key) expandedProjectKeys.delete(key);
+    });
 
     updateFilterCounts();
 
@@ -626,8 +646,10 @@
     const recentSessions = project.sessions.slice(0, 8);
     const overflow = project.sessions.length - recentSessions.length;
 
+    const isCollapsed = !expandedProjectKeys.has(project.key);
+
     return `
-<div class="tree-project collapsed${isPinned ? ' pinned' : ''}" data-key="${esc(project.key)}">
+<div class="tree-project${isCollapsed ? ' collapsed' : ''}${isPinned ? ' pinned' : ''}" data-key="${esc(project.key)}">
   <div class="tree-project-header" title="${esc(project.path)}">
     <span class="collapse-chevron"></span>
     <span class="status-dot ${status}"></span>
@@ -946,7 +968,11 @@
         e.preventDefault();
         if (focusedIndex < 0 || focusedIndex >= items.length) break;
         const item = items[focusedIndex];
-        if (item.type === 'project') { item.projectEl.classList.add('collapsed'); }
+        if (item.type === 'project') {
+          item.projectEl.classList.add('collapsed');
+          const key = item.projectEl.dataset.key;
+          if (key) expandedProjectKeys.delete(key);
+        }
         else { for (let i = focusedIndex - 1; i >= 0; i--) { if (items[i].type === 'project') { setFocusedItem(i); break; } } }
         break;
       }
@@ -955,7 +981,11 @@
         if (focusedIndex < 0 || focusedIndex >= items.length) break;
         const item = items[focusedIndex];
         if (item.type === 'project') {
-          if (item.projectEl.classList.contains('collapsed')) { item.projectEl.classList.remove('collapsed'); }
+          if (item.projectEl.classList.contains('collapsed')) {
+            item.projectEl.classList.remove('collapsed');
+            const key = item.projectEl.dataset.key;
+            if (key) expandedProjectKeys.add(key);
+          }
           else { moveFocus(1); }
         }
         break;
