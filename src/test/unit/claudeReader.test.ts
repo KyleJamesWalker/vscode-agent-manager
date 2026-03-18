@@ -51,7 +51,7 @@ describe('generateToolPreview', () => {
     const preview = generateToolPreview('Bash', { command: cmd });
     expect(preview.startsWith('$ ')).toBe(true);
     expect(preview.endsWith('\u2026')).toBe(true);
-    expect(preview.length).toBeLessThanOrEqual(82); // '$ ' + 77 + '…'
+    expect(preview.length).toBe(80); // '$ ' + 77 chars + '…'
   });
 
   test('Bash returns full command when short', () => {
@@ -115,6 +115,33 @@ describe('readConversation', () => {
       type: 'tool',
       content: 'Read',
       output: 'file body',
+    });
+  });
+
+  test('extracts tool_result with array content', () => {
+    const lines = [
+      JSON.stringify({
+        type: 'assistant',
+        message: { content: [{ type: 'tool_use', id: 'tu2', name: 'Bash', input: { command: 'ls' } }] },
+      }),
+      JSON.stringify({
+        type: 'user',
+        message: {
+          content: [{
+            type: 'tool_result',
+            tool_use_id: 'tu2',
+            content: [{ type: 'text', text: 'file-a\nfile-b' }],
+          }],
+        },
+      }),
+    ].join('\n');
+    jest.mocked(fs.readFileSync).mockReturnValue(lines);
+    const result = readConversation('proj', 'sess');
+    const assistantMsg = result.find((m) => m.role === 'assistant')!;
+    expect(assistantMsg.blocks[0]).toMatchObject({
+      type: 'tool',
+      content: 'Bash',
+      output: 'file-a\nfile-b',
     });
   });
 
