@@ -13,8 +13,11 @@
   let audioCtx = null;
 
   // Currently selected conversation
+  /** @type {string | null} */
   let selectedSessionId = null;
+  /** @type {string | null} */
   let selectedAgentId = null;
+  /** @type {string | null} */
   let selectedProjectKey = null;
   let exportInProgress = false;
 
@@ -22,9 +25,9 @@
   let focusedIndex = -1;
   let layoutMode = 'wide';
   let renderedMessageCount = 0;
-  function deactivateLiveIndicator() {}
 
   // Tailing state
+  /** @type {ReturnType<typeof setTimeout> | null} */
   let liveTimeout = null;
   let isUserAtBottom = true;
 
@@ -76,6 +79,12 @@
     if (msg.command === 'exportDone') {
       exportInProgress = false;
       exportBtn.disabled = false;
+    }
+    if (msg.command === 'conversationTail') {
+      handleConversationTail(msg.messages, msg.sessionId, msg.agentId);
+    }
+    if (msg.command === 'sidebarRowUpdate') {
+      handleSidebarRowUpdate(msg);
     }
   });
 
@@ -677,6 +686,129 @@
     </div>
   </div>
 </div>`;
+  }
+
+  // ── Live indicator ─────────────────────────────────────────────────────────
+  function activateLiveIndicator() {
+    const indicator = document.getElementById('live-indicator');
+    if (indicator) indicator.classList.add('active');
+    if (liveTimeout) clearTimeout(liveTimeout);
+    liveTimeout = setTimeout(() => { deactivateLiveIndicator(); }, 60000);
+  }
+
+  function deactivateLiveIndicator() {
+    const indicator = document.getElementById('live-indicator');
+    if (indicator) indicator.classList.remove('active');
+    if (liveTimeout) { clearTimeout(liveTimeout); liveTimeout = null; }
+  }
+
+  // ── Conversation tailing ───────────────────────────────────────────────────
+  /**
+   * @param {any[]} messages
+   * @param {string} sessionId
+   * @param {string | null | undefined} agentId
+   */
+  function handleConversationTail(messages, sessionId, agentId) {
+    if (sessionId !== selectedSessionId) return;
+    if ((agentId || null) !== (selectedAgentId || null)) return;
+    if (!messages || messages.length === 0) return;
+
+    const container = document.getElementById('conversation-container');
+    if (!container) return;
+    const convMessages = container.querySelector('.conv-messages');
+    if (!convMessages) {
+      renderConversation(messages, sessionId, agentId);
+      return;
+    }
+
+    const newCount = messages.length;
+    if (newCount <= renderedMessageCount) return;
+
+    const newMessages = messages.slice(renderedMessageCount);
+    renderedMessageCount = newCount;
+
+    // Insert NEW divider if user is scrolled up
+    if (!isUserAtBottom && !container.querySelector('.new-msg-divider')) {
+      const divider = document.createElement('div');
+      divider.className = 'new-msg-divider';
+      divider.innerHTML = '<span>NEW</span>';
+      convMessages.appendChild(divider);
+    }
+
+    // Append new messages with highlight
+    for (const msg of newMessages) {
+      const msgHtml = renderMessage(msg);
+      const temp = document.createElement('div');
+      temp.innerHTML = msgHtml;
+      const msgEl = temp.firstElementChild;
+      if (msgEl) {
+        msgEl.classList.add('msg-new');
+        convMessages.appendChild(msgEl);
+        msgEl.querySelectorAll('.tool-badge-header').forEach((header) => {
+          header.addEventListener('click', () => {
+            header.closest('.tool-badge').classList.toggle('expanded');
+          });
+        });
+        setTimeout(() => { msgEl.classList.add('msg-new-faded'); }, 2000);
+      }
+    }
+
+    if (isUserAtBottom) {
+      container.scrollTop = container.scrollHeight;
+    } else {
+      showNewMessagePill(newMessages.length);
+    }
+
+    activateLiveIndicator();
+  }
+
+  /** @param {number} count */
+  function showNewMessagePill(count) {
+    let pill = document.getElementById('new-msg-pill');
+    if (!pill) {
+      pill = document.createElement('div');
+      pill.id = 'new-msg-pill';
+      pill.className = 'new-msg-pill';
+      const convCont = document.getElementById('conversation-container');
+      if (convCont) convCont.appendChild(pill);
+      pill.addEventListener('click', () => {
+        const cont = document.getElementById('conversation-container');
+        if (cont) cont.scrollTop = cont.scrollHeight;
+        pill.remove();
+        const d = document.querySelector('.new-msg-divider');
+        if (d) d.remove();
+      });
+    }
+    const total = parseInt(pill.dataset.count || '0', 10) + count;
+    pill.dataset.count = String(total);
+    pill.textContent = `${total} new message${total === 1 ? '' : 's'}`;
+  }
+
+  /** @param {any} msg */
+  function handleSidebarRowUpdate(msg) {
+    // Update session row
+    const row = document.querySelector(`.tree-session[data-session-id="${msg.sessionId}"]`);
+    if (row) {
+      const dot = row.querySelector('.status-dot');
+      if (dot) dot.className = `status-dot small ${statusClass(msg.lastTimestamp, msg.lastMessageRole)}`;
+
+      const isWait = isItemWaiting({ lastTimestamp: msg.lastTimestamp, lastMessageRole: msg.lastMessageRole });
+      const line2 = row.querySelector('.tree-session-line2');
+      if (line2) {
+        const badge = line2.querySelector('.tree-badge-waiting');
+        if (isWait && !badge) {
+          const b = document.createElement('span');
+          b.className = 'tree-badge-waiting';
+          b.textContent = 'waiting';
+          line2.prepend(b);
+        } else if (!isWait && badge) {
+          badge.remove();
+        }
+      }
+
+      const msgsEl = row.querySelector('.tree-msgs');
+      if (msgsEl && msg.messageCount) msgsEl.textContent = `${msg.messageCount} msgs`;
+    }
   }
 
   // Configure marked for safe rendering
