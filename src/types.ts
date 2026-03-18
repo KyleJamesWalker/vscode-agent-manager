@@ -6,6 +6,7 @@ export interface SubAgent {
   lastTimestamp?: string;
   messageCount: number;
   lastMessageRole?: string;
+  status: 'active' | 'thinking' | 'waiting' | 'recent' | 'idle';
 }
 
 export interface ClaudeSession {
@@ -18,6 +19,7 @@ export interface ClaudeSession {
   messageCount: number;
   subAgents: SubAgent[];
   lastMessageRole?: string;
+  status: 'active' | 'thinking' | 'waiting' | 'recent' | 'idle';
 }
 
 export interface ClaudeProject {
