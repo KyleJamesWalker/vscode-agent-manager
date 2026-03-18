@@ -27,6 +27,8 @@ export class AgentManagerPanel {
   private _watchedProjectKey: string | undefined;
   private _watchedSessionId: string | undefined;
   private _watchedAgentId: string | undefined;
+  private _currentCwd: string | undefined;
+  private _currentSessionId: string | undefined;
 
   public static createOrShow(context: vscode.ExtensionContext): void {
     const column =
@@ -105,6 +107,12 @@ export class AgentManagerPanel {
             break;
           case 'loadConversation':
             if (message.projectKey && message.sessionId) {
+              // Resolve CWD from projects cache (subagents share parent session CWD)
+              const proj = this._projects.find((p) => p.key === message.projectKey);
+              const sess = proj?.sessions.find((s) => s.sessionId === message.sessionId);
+              this._currentCwd = sess?.cwd;
+              this._currentSessionId = message.sessionId as string;
+
               const messages = readConversation(
                 message.projectKey,
                 message.sessionId,
@@ -115,6 +123,7 @@ export class AgentManagerPanel {
                 messages,
                 sessionId: message.sessionId,
                 agentId: message.agentId,
+                cwd: this._currentCwd,
               });
               this._setupFileWatcher(message.projectKey, message.sessionId, message.agentId);
             }
@@ -246,6 +255,7 @@ export class AgentManagerPanel {
           command: 'sidebarRowUpdate',
           sessionId: session.sessionId,
           lastMessageRole: session.lastMessageRole,
+          status: session.status,
           lastTimestamp: session.lastTimestamp,
           messageCount: session.messageCount,
         });
