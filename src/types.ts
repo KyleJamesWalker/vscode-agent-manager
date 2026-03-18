@@ -1,3 +1,5 @@
+export type SessionStatus = 'active' | 'thinking' | 'waiting' | 'recent' | 'idle';
+
 export interface SubAgent {
   agentId: string;
   slug?: string;
@@ -6,7 +8,7 @@ export interface SubAgent {
   lastTimestamp?: string;
   messageCount: number;
   lastMessageRole?: string;
-  status: 'active' | 'thinking' | 'waiting' | 'recent' | 'idle';
+  status: SessionStatus;
 }
 
 export interface ClaudeSession {
@@ -19,7 +21,7 @@ export interface ClaudeSession {
   messageCount: number;
   subAgents: SubAgent[];
   lastMessageRole?: string;
-  status: 'active' | 'thinking' | 'waiting' | 'recent' | 'idle';
+  status: SessionStatus;
 }
 
 export interface ClaudeProject {
