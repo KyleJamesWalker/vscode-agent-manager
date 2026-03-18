@@ -27,6 +27,8 @@ export class AgentManagerPanel {
   private _watchedProjectKey: string | undefined;
   private _watchedSessionId: string | undefined;
   private _watchedAgentId: string | undefined;
+  // _currentCwd and _currentSessionId are set on every loadConversation and used
+  // by the focusTerminal and sendMessage handlers (wired in a later task).
   private _currentCwd: string | undefined;
   private _currentSessionId: string | undefined;
 
@@ -107,11 +109,12 @@ export class AgentManagerPanel {
             break;
           case 'loadConversation':
             if (message.projectKey && message.sessionId) {
-              // Resolve CWD from projects cache (subagents share parent session CWD)
+              // CWD lookup uses the _projects cache (populated by _sendUpdate). If the panel
+              // loads a session before the first _sendUpdate cycle, cwd will be undefined.
               const proj = this._projects.find((p) => p.key === message.projectKey);
               const sess = proj?.sessions.find((s) => s.sessionId === message.sessionId);
               this._currentCwd = sess?.cwd;
-              this._currentSessionId = message.sessionId as string;
+              this._currentSessionId = message.sessionId;
 
               const messages = readConversation(
                 message.projectKey,
@@ -228,6 +231,9 @@ export class AgentManagerPanel {
     this._watchedProjectKey = undefined;
     this._watchedSessionId = undefined;
     this._watchedAgentId = undefined;
+    // _currentCwd and _currentSessionId are intentionally NOT cleared here.
+    // _teardownFileWatcher is called by _setupFileWatcher on every loadConversation,
+    // so clearing them here would immediately nullify the values set by the handler.
   }
 
   private _sendConversationTail(): void {
