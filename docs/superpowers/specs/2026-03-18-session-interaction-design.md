@@ -1,7 +1,7 @@
 # Session Interaction Design
 
 **Date:** 2026-03-18
-**Inspired by:** [see-claude](https://github.com/lukejbyrne/see-claude)
+**Inspired by:** [see-claude](https://github.com/lukejbyrne/see-claude), and desire for easier interactions.
 **Status:** Approved
 
 ## Overview
