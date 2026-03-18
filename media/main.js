@@ -20,6 +20,11 @@
   /** @type {string | null} */
   let selectedProjectKey = null;
   let exportInProgress = false;
+  let sendBarOpen = false;
+  let sendInFlight = false;
+  /** @type {string | null} */
+  let currentSessionCwd = null;
+  let hasLiveTerminal = false;
 
   // Forward declarations for later tasks (Task 3 will declare properly)
   let focusedIndex = -1;
@@ -91,6 +96,10 @@
         new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
     if (msg.command === 'conversation') {
+      currentSessionCwd = msg.cwd ?? null;
+      hasLiveTerminal = false;
+      const focusBtn = document.getElementById('focus-btn');
+      if (focusBtn) focusBtn.style.display = 'none';
       renderConversation(msg.messages, msg.sessionId, msg.agentId);
     }
     if (msg.command === 'exportDone') {
@@ -102,6 +111,28 @@
     }
     if (msg.command === 'sidebarRowUpdate') {
       handleSidebarRowUpdate(msg);
+    }
+    if (msg.command === 'terminalStatus') {
+      if (msg.cwd === currentSessionCwd) {
+        hasLiveTerminal = msg.hasTerminal;
+        const focusBtn = document.getElementById('focus-btn');
+        if (focusBtn) focusBtn.style.display = hasLiveTerminal ? 'inline-block' : 'none';
+      }
+    }
+    if (msg.command === 'sendMessageResult') {
+      sendInFlight = false;
+      const submitBtn = document.getElementById('send-submit-btn');
+      const input = document.getElementById('send-input');
+      const errorEl = document.getElementById('send-error');
+      if (msg.success) {
+        if (input) { input.value = ''; input.style.height = ''; }
+        if (submitBtn) { submitBtn.textContent = 'Send'; submitBtn.disabled = true; }
+        if (errorEl) { errorEl.textContent = ''; errorEl.classList.remove('visible'); }
+      } else {
+        if (input) input.disabled = false;
+        if (submitBtn) { submitBtn.textContent = 'Send'; submitBtn.disabled = false; }
+        if (errorEl) { errorEl.textContent = msg.error || 'Send failed'; errorEl.classList.add('visible'); }
+      }
     }
   });
 
@@ -163,6 +194,24 @@
     exportBtn.disabled = true;
     vscode.postMessage({ command: 'exportChat', projectKey: selectedProjectKey, sessionId: selectedSessionId });
   });
+
+  const focusBtnEl = document.getElementById('focus-btn');
+  if (focusBtnEl) {
+    focusBtnEl.addEventListener('click', () => {
+      vscode.postMessage({ command: 'focusTerminal' });
+    });
+  }
+
+  const sendBtnEl = document.getElementById('send-btn');
+  if (sendBtnEl) {
+    sendBtnEl.addEventListener('click', () => {
+      if (sendBarOpen) {
+        closeSendBar();
+      } else {
+        openSendBar();
+      }
+    });
+  }
 
   // ── Settings ───────────────────────────────────────────────────────────────
   const settingsBtn = document.getElementById('settings-btn');
@@ -271,7 +320,7 @@
   function isItemWaiting(item) {
     if (!item.lastTimestamp) return false;
     const mins = (Date.now() - new Date(item.lastTimestamp).getTime()) / 60000;
-    return mins < 5 && item.lastMessageRole === 'assistant';
+    return mins < 5 && item.status === 'waiting';
   }
 
   function isProjectWaiting(project) {
@@ -363,11 +412,12 @@
     return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   }
 
-  function statusClass(ts, lastMessageRole) {
+  function statusClass(ts, precomputedStatus) {
     if (!ts) return 'idle';
     const mins = (Date.now() - new Date(ts).getTime()) / 60000;
     if (mins < 5) {
-      if (lastMessageRole === 'assistant') return 'waiting';
+      if (precomputedStatus === 'thinking') return 'thinking';
+      if (precomputedStatus === 'waiting') return 'waiting';
       return 'active';
     }
     if (mins < 120) return 'recent';
@@ -573,6 +623,11 @@
     deactivateLiveIndicator();
     exportBtn.style.display = 'block';
     exportBtn.disabled = exportInProgress;
+    const sendBtn = document.getElementById('send-btn');
+    if (sendBtn) sendBtn.style.display = 'inline-block';
+    const focusBtn2 = document.getElementById('focus-btn');
+    if (focusBtn2) focusBtn2.style.display = 'none'; // hidden until terminalStatus arrives
+    closeSendBar();
 
     // Remove existing pill/divider
     const pill = document.getElementById('new-msg-pill');
@@ -667,7 +722,7 @@
   }
 
   function renderSession(session, projectKey) {
-    const status = statusClass(session.lastTimestamp, session.lastMessageRole);
+    const status = statusClass(session.lastTimestamp, session.status);
     const hasAgents = session.subAgents && session.subAgents.length > 0;
     const prompt = trunc(session.firstPrompt || '(no prompt)', 60);
     const waiting = isItemWaiting(session);
@@ -694,7 +749,7 @@
 
   function renderSubAgent(agent, projectKey, sessionId) {
     const label = agent.slug || agent.agentId.slice(0, 8);
-    const status = statusClass(agent.lastTimestamp, agent.lastMessageRole);
+    const status = statusClass(agent.lastTimestamp, agent.status);
     const waiting = isItemWaiting(agent);
 
     return `
@@ -820,6 +875,71 @@
     const indicator = document.getElementById('live-indicator');
     if (indicator) indicator.classList.remove('active');
     if (liveTimeout) { clearTimeout(liveTimeout); liveTimeout = null; }
+  }
+
+  function openSendBar() {
+    sendBarOpen = true;
+    const bar = document.getElementById('send-bar');
+    if (bar) bar.classList.add('open');
+    const input = document.getElementById('send-input');
+    if (input) { input.disabled = false; input.focus(); }
+  }
+
+  function closeSendBar() {
+    sendBarOpen = false;
+    const bar = document.getElementById('send-bar');
+    if (bar) bar.classList.remove('open');
+    const input = document.getElementById('send-input');
+    if (input) { input.value = ''; input.style.height = ''; input.disabled = false; }
+    const submitBtn = document.getElementById('send-submit-btn');
+    if (submitBtn) { submitBtn.textContent = 'Send'; submitBtn.disabled = true; }
+    const errorEl = document.getElementById('send-error');
+    if (errorEl) { errorEl.textContent = ''; errorEl.classList.remove('visible'); }
+    sendInFlight = false;
+  }
+
+  function submitSendBar() {
+    const input = document.getElementById('send-input');
+    if (!input || !input.value.trim() || sendInFlight) return;
+    sendInFlight = true;
+    const text = input.value;
+    const submitBtn = document.getElementById('send-submit-btn');
+    const errorEl = document.getElementById('send-error');
+    const isResuming = !hasLiveTerminal;
+
+    input.disabled = true;
+    if (submitBtn) submitBtn.textContent = isResuming ? 'Resuming…' : '…';
+    if (submitBtn) submitBtn.disabled = true;
+    if (errorEl) { errorEl.textContent = ''; errorEl.classList.remove('visible'); }
+
+    vscode.postMessage({ command: 'sendMessage', text });
+  }
+
+  // ── Send bar textarea event listeners ─────────────────────────────────────
+  const sendInputEl = document.getElementById('send-input');
+  if (sendInputEl) {
+    sendInputEl.addEventListener('input', function () {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 88) + 'px';
+      const submitBtn = document.getElementById('send-submit-btn');
+      if (submitBtn) submitBtn.disabled = !this.value.trim() || sendInFlight;
+    });
+
+    sendInputEl.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        submitSendBar();
+      }
+      if (e.key === 'Escape') {
+        e.stopPropagation(); // prevent global Escape from deselecting session
+        closeSendBar();
+      }
+    });
+  }
+
+  const sendSubmitBtnEl = document.getElementById('send-submit-btn');
+  if (sendSubmitBtnEl) {
+    sendSubmitBtnEl.addEventListener('click', submitSendBar);
   }
 
   // ── Conversation tailing ───────────────────────────────────────────────────
@@ -999,6 +1119,11 @@
         e.preventDefault();
         selectedSessionId = null; selectedAgentId = null; selectedProjectKey = null;
         exportBtn.style.display = 'none';
+        const sendBtn2 = document.getElementById('send-btn');
+        if (sendBtn2) sendBtn2.style.display = 'none';
+        const focusBtn3 = document.getElementById('focus-btn');
+        if (focusBtn3) focusBtn3.style.display = 'none';
+        closeSendBar();
         document.querySelectorAll('.tree-session, .tree-subagent').forEach((r) => r.classList.remove('selected'));
         document.getElementById('conversation-container').innerHTML =
           '<div class="conv-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="conv-empty-icon"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><p>Click on a session or agent in the sidebar to view the conversation.</p></div>';
@@ -1077,9 +1202,9 @@
     const row = document.querySelector(`.tree-session[data-session-id="${CSS.escape(msg.sessionId)}"]`);
     if (row) {
       const dot = row.querySelector('.status-dot');
-      if (dot) dot.className = `status-dot small ${statusClass(msg.lastTimestamp, msg.lastMessageRole)}`;
+      if (dot) dot.className = `status-dot small ${statusClass(msg.lastTimestamp, msg.status)}`;
 
-      const isWait = isItemWaiting({ lastTimestamp: msg.lastTimestamp, lastMessageRole: msg.lastMessageRole });
+      const isWait = isItemWaiting({ lastTimestamp: msg.lastTimestamp, status: msg.status });
       const line2 = row.querySelector('.tree-session-line2');
       if (line2) {
         const badge = line2.querySelector('.tree-badge-waiting');
