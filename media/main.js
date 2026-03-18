@@ -51,6 +51,19 @@
     });
   }
 
+  const resizeObserver = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      const width = entry.contentRect.width;
+      const newMode = width > 600 ? 'wide' : 'narrow';
+      if (newMode !== layoutMode) {
+        layoutMode = newMode;
+        applyLayoutMode();
+      }
+    }
+  });
+  const appEl = document.getElementById('app');
+  if (appEl) resizeObserver.observe(appEl);
+
   // Restore webview-local state
   const saved = vscode.getState();
   if (saved) {
@@ -381,6 +394,135 @@
     return str.length > n ? str.slice(0, n) + '…' : str;
   }
 
+  // ── Responsive layout ──────────────────────────────────────────────────────
+  function applyLayoutMode() {
+    const iconRail = document.getElementById('icon-rail');
+    const app = document.getElementById('app');
+    if (!app || !iconRail) return;
+
+    if (layoutMode === 'narrow') {
+      app.classList.add('narrow-mode');
+      iconRail.style.display = 'flex';
+      renderIconRail();
+    } else {
+      app.classList.remove('narrow-mode');
+      iconRail.style.display = 'none';
+      closeSidebarOverlay();
+    }
+  }
+
+  function renderIconRail() {
+    const rail = document.getElementById('icon-rail');
+    if (!rail) return;
+    const projects = filtered();
+    rail.innerHTML = projects.map((p) => {
+      const status = projectStatusClass(p);
+      return `<div class="icon-rail-dot ${status}" data-key="${esc(p.key)}" title="${esc(p.displayName)} (${p.sessions.length} sessions)"></div>`;
+    }).join('');
+    rail.querySelectorAll('.icon-rail-dot').forEach((dot) => {
+      dot.addEventListener('click', () => { openSidebarOverlay(); });
+    });
+  }
+
+  function openSidebarOverlay() {
+    closeSidebarOverlay();
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'sidebar-overlay-backdrop';
+    backdrop.addEventListener('click', () => closeSidebarOverlay());
+
+    const overlay = document.createElement('div');
+    overlay.id = 'sidebar-overlay';
+    overlay.className = 'sidebar-overlay';
+
+    // Build overlay content — a minimal sidebar with just the project list
+    overlay.innerHTML = `
+      <div class="sidebar-header">
+        <span class="sidebar-title">Agent Manager</span>
+      </div>
+      <div id="overlay-projects-container" style="flex:1;overflow-y:auto;padding:2px 0;"></div>
+    `;
+
+    const appEl2 = document.getElementById('app');
+    if (appEl2) {
+      appEl2.appendChild(backdrop);
+      appEl2.appendChild(overlay);
+    }
+
+    // Render projects into overlay container
+    const container = document.getElementById('overlay-projects-container');
+    const projects = filtered();
+    if (container && projects.length) {
+      container.innerHTML = projects.map(renderProject).join('');
+      bindSidebarEvents(container, true);
+    } else if (container) {
+      container.innerHTML = '<div class="empty">No projects</div>';
+    }
+
+    // Trigger slide-in animation
+    void overlay.offsetHeight;
+    overlay.classList.add('open');
+  }
+
+  function closeSidebarOverlay() {
+    const backdrop = document.querySelector('.sidebar-overlay-backdrop');
+    const overlay = document.getElementById('sidebar-overlay');
+    if (backdrop) backdrop.remove();
+    if (overlay) overlay.remove();
+  }
+
+  /**
+   * Bind click events for sidebar content. Used by both main sidebar and overlay.
+   * @param {HTMLElement} container
+   * @param {boolean} closeOverlayOnSelect
+   */
+  function bindSidebarEvents(container, closeOverlayOnSelect) {
+    container.querySelectorAll('[data-action]').forEach((el) => {
+      const elTyped = /** @type {HTMLElement} */ (el);
+      elTyped.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const action = elTyped.dataset.action;
+        if (action === 'open') vscode.postMessage({ command: 'openFolder', path: elTyped.dataset.path, newWindow: false });
+        if (action === 'open-new') vscode.postMessage({ command: 'openFolder', path: elTyped.dataset.path, newWindow: true });
+        if (action === 'pin') vscode.postMessage({ command: 'togglePin', key: elTyped.dataset.key });
+      });
+    });
+
+    container.querySelectorAll('.tree-project-header').forEach((hdr) => {
+      hdr.addEventListener('click', (e) => {
+        if (/** @type {HTMLElement} */ (e.target).closest('[data-action]')) return;
+        hdr.closest('.tree-project').classList.toggle('collapsed');
+      });
+    });
+
+    container.querySelectorAll('.tree-session').forEach((row) => {
+      const rowTyped = /** @type {HTMLElement} */ (row);
+      rowTyped.addEventListener('click', (e) => {
+        if (/** @type {HTMLElement} */ (e.target).closest('.tree-subagent')) return;
+        const key = rowTyped.dataset.projectKey;
+        const sid = rowTyped.dataset.sessionId;
+        if (key && sid) {
+          selectConversation(key, sid, null, rowTyped);
+          if (closeOverlayOnSelect) closeSidebarOverlay();
+        }
+      });
+    });
+
+    container.querySelectorAll('.tree-subagent').forEach((row) => {
+      const rowTyped = /** @type {HTMLElement} */ (row);
+      rowTyped.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const key = rowTyped.dataset.projectKey;
+        const sid = rowTyped.dataset.sessionId;
+        const aid = rowTyped.dataset.agentId;
+        if (key && sid && aid) {
+          selectConversation(key, sid, aid, rowTyped);
+          if (closeOverlayOnSelect) closeSidebarOverlay();
+        }
+      });
+    });
+  }
+
   // ── Sidebar Render ─────────────────────────────────────────────────────────
   function renderSidebar(projects) {
     const container = document.getElementById('projects-container');
@@ -398,52 +540,10 @@
 
     container.innerHTML = projects.map(renderProject).join('');
 
-    // Event delegation for project actions
-    container.querySelectorAll('[data-action]').forEach((el) => {
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const action = el.dataset.action;
-        if (action === 'open') vscode.postMessage({ command: 'openFolder', path: el.dataset.path, newWindow: false });
-        if (action === 'open-new') vscode.postMessage({ command: 'openFolder', path: el.dataset.path, newWindow: true });
-        if (action === 'pin') vscode.postMessage({ command: 'togglePin', key: el.dataset.key });
-      });
-    });
-
-    // Toggle project expand/collapse
-    container.querySelectorAll('.tree-project-header').forEach((hdr) => {
-      hdr.addEventListener('click', (e) => {
-        if (e.target.closest('[data-action]')) return;
-        const project = hdr.closest('.tree-project');
-        if (project) project.classList.toggle('collapsed');
-      });
-    });
-
-    // Click session to load conversation
-    container.querySelectorAll('.tree-session').forEach((row) => {
-      row.addEventListener('click', (e) => {
-        if (e.target.closest('.tree-subagent')) return;
-        const key = row.dataset.projectKey;
-        const sid = row.dataset.sessionId;
-        if (key && sid) selectConversation(key, sid, null, row);
-      });
-    });
-
-    // Click subagent to load its conversation
-    container.querySelectorAll('.tree-subagent').forEach((row) => {
-      row.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const key = row.dataset.projectKey;
-        const sid = row.dataset.sessionId;
-        const aid = row.dataset.agentId;
-        if (key && sid && aid) selectConversation(key, sid, aid, row);
-      });
-    });
-
+    if (container) bindSidebarEvents(container, false);
     applySelectedState();
 
-    // renderIconRail is defined in Task 7 — guard for task-by-task execution
-    const _renderIconRail = /** @type {any} */ (window)['renderIconRail'];
-    if (layoutMode === 'narrow' && typeof _renderIconRail === 'function') _renderIconRail();
+    if (layoutMode === 'narrow' && typeof renderIconRail === 'function') renderIconRail();
   }
 
   function selectConversation(projectKey, sessionId, agentId, rowEl) {

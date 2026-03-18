@@ -367,6 +367,7 @@ export class AgentManagerPanel {
 </head>
 <body>
   <div id="app">
+    <div id="icon-rail" class="icon-rail"></div>
     <!-- ── Left Sidebar ── -->
     <div id="sidebar">
       <div class="sidebar-header">
