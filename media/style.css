@@ -1281,13 +1281,6 @@ button {
 }
 
 /* ── Send bar ────────────────────────────────────────────────────────────── */
-#main-panel {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  overflow: hidden;
-}
-
 #send-bar {
   display: none;
   flex-shrink: 0;
