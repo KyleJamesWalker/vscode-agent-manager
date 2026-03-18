@@ -180,10 +180,11 @@ describe('exportConversation', () => {
       readConversation: (_key, _sess, agentId) =>
         agentId ? [textMessage('user', 'Go')] : [textMessage('user', 'Hello')],
     };
-    exportConversation(params, defaultSettings, '/tmp/session.md');
+    const result = exportConversation(params, defaultSettings, '/tmp/session.md');
     // Agent file is written first (before root)
     const agentContent = String(jest.mocked(fs.writeFileSync).mock.calls[0][1]);
     expect(agentContent).toContain('← [Back to session](./session.md)');
+    expect(result.agentPaths).toEqual(['/tmp/session-agent-explore.md']);
   });
 
   test('root file links to agent sub-file', () => {
@@ -198,6 +199,6 @@ describe('exportConversation', () => {
     // Root file is written last
     const calls = jest.mocked(fs.writeFileSync).mock.calls;
     const rootContent = String(calls[calls.length - 1][1]);
-    expect(rootContent).toContain('[explore]');
+    expect(rootContent).toContain('[explore](./session-agent-explore.md)');
   });
 });
