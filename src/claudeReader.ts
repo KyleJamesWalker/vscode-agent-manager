@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { ClaudeProject, ClaudeSession, SubAgent, ConversationMessage, MessageBlock } from './types';
+import { ClaudeProject, ClaudeSession, SubAgent, ConversationMessage, MessageBlock, SessionStatus } from './types';
 
 const PROJECTS_DIR = path.join(os.homedir(), '.claude', 'projects');
 const MAX_SESSION_AGE_DAYS = 30;
@@ -69,6 +69,17 @@ function isCommandMessage(text: string): boolean {
   );
 }
 
+function deriveStatus(
+  lastMessageRole: string | undefined,
+  lastContentBlockType: string | undefined
+): SessionStatus {
+  if (!lastMessageRole) return 'idle';
+  if (lastMessageRole === 'user') return 'active';
+  // lastMessageRole === 'assistant'
+  if (lastContentBlockType === 'tool_use') return 'thinking';
+  return 'waiting';
+}
+
 function parseSubAgent(agentFilePath: string): SubAgent | null {
   const messages = parseJsonlFile(agentFilePath);
   if (messages.length === 0) return null;
@@ -80,6 +91,7 @@ function parseSubAgent(agentFilePath: string): SubAgent | null {
   let lastTimestamp: string | undefined;
   let messageCount = 0;
   let lastMessageRole: string | undefined;
+  let lastContentBlockType: string | undefined;
 
   for (const msg of messages) {
     if (msg.timestamp) {
@@ -98,10 +110,22 @@ function parseSubAgent(agentFilePath: string): SubAgent | null {
     if (msg.type === 'user' || msg.type === 'assistant') {
       messageCount++;
       lastMessageRole = msg.type;
+      if (msg.type === 'assistant') {
+        const content = msg.message?.content;
+        if (Array.isArray(content) && content.length > 0) {
+          lastContentBlockType = content[content.length - 1].type;
+        } else {
+          lastContentBlockType = undefined;
+        }
+      }
     }
   }
 
-  return { agentId, slug, firstPrompt, firstTimestamp, lastTimestamp, messageCount, lastMessageRole };
+  return {
+    agentId, slug, firstPrompt, firstTimestamp, lastTimestamp, messageCount,
+    lastMessageRole,
+    status: deriveStatus(lastMessageRole, lastContentBlockType),
+  };
 }
 
 function parseSession(
@@ -118,6 +142,7 @@ function parseSession(
   let lastTimestamp: string | undefined;
   let messageCount = 0;
   let lastMessageRole: string | undefined;
+  let lastContentBlockType: string | undefined;
 
   for (const msg of messages) {
     if (msg.timestamp) {
@@ -137,6 +162,14 @@ function parseSession(
     if (msg.type === 'user' || msg.type === 'assistant') {
       messageCount++;
       lastMessageRole = msg.type;
+      if (msg.type === 'assistant') {
+        const content = msg.message?.content;
+        if (Array.isArray(content) && content.length > 0) {
+          lastContentBlockType = content[content.length - 1].type;
+        } else {
+          lastContentBlockType = undefined;
+        }
+      }
     }
   }
 
@@ -173,6 +206,7 @@ function parseSession(
     messageCount,
     subAgents,
     lastMessageRole,
+    status: deriveStatus(lastMessageRole, lastContentBlockType),
   };
 }
 
