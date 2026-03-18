@@ -24,7 +24,7 @@ function agentLabel(agent: SubAgent): string {
   return agent.slug ? slugify(agent.slug) : agent.agentId.slice(0, 8);
 }
 
-function deduplicateLabels(agents: SubAgent[]): Map<SubAgent, string> {
+export function deduplicateLabels(agents: SubAgent[]): Map<SubAgent, string> {
   const counts = new Map<string, number>();
   for (const agent of agents) {
     const base = agentLabel(agent);
@@ -69,7 +69,7 @@ function truncate(s: string, n: number): string {
   return s.length > n ? s.slice(0, n) + '…' : s;
 }
 
-function renderToolBlock(block: { content: string; preview?: string; input?: string; output?: string; isError?: boolean }, format: ManagerSettings['exportToolFormat']): string {
+export function renderToolBlock(block: { content: string; preview?: string; input?: string; output?: string; isError?: boolean }, format: ManagerSettings['exportToolFormat']): string {
   if (format === 'omit') return '';
 
   const name = block.content;

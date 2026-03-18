@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { ClaudeProject, ClaudeSession, SubAgent, ConversationMessage, MessageBlock } from './types';
+import { ClaudeProject, ClaudeSession, SubAgent, ConversationMessage, MessageBlock, SessionStatus } from './types';
 
 const PROJECTS_DIR = path.join(os.homedir(), '.claude', 'projects');
 const MAX_SESSION_AGE_DAYS = 30;
@@ -69,6 +69,28 @@ function isCommandMessage(text: string): boolean {
   );
 }
 
+function deriveStatus(
+  lastMessageRole: string | undefined,
+  lastContentBlockType: string | undefined
+): SessionStatus {
+  if (!lastMessageRole) return 'idle';
+  if (lastMessageRole === 'user') return 'active';
+  // lastMessageRole === 'assistant'
+  if (lastContentBlockType === 'tool_use') return 'thinking';
+  return 'waiting';
+}
+// Note: 'recent' is not returned here — it is a time-based overlay applied in the
+// webview's statusClass() function and does not come from the parsed message content.
+
+function getLastContentBlockType(msg: { type: string; message?: { content?: unknown } }): string | undefined {
+  if (msg.type !== 'assistant') return undefined;
+  const content = msg.message?.content;
+  if (Array.isArray(content) && content.length > 0) {
+    return (content[content.length - 1] as { type?: string }).type;
+  }
+  return undefined;
+}
+
 function parseSubAgent(agentFilePath: string): SubAgent | null {
   const messages = parseJsonlFile(agentFilePath);
   if (messages.length === 0) return null;
@@ -80,6 +102,7 @@ function parseSubAgent(agentFilePath: string): SubAgent | null {
   let lastTimestamp: string | undefined;
   let messageCount = 0;
   let lastMessageRole: string | undefined;
+  let lastContentBlockType: string | undefined;
 
   for (const msg of messages) {
     if (msg.timestamp) {
@@ -98,10 +121,15 @@ function parseSubAgent(agentFilePath: string): SubAgent | null {
     if (msg.type === 'user' || msg.type === 'assistant') {
       messageCount++;
       lastMessageRole = msg.type;
+      lastContentBlockType = getLastContentBlockType(msg);
     }
   }
 
-  return { agentId, slug, firstPrompt, firstTimestamp, lastTimestamp, messageCount, lastMessageRole };
+  return {
+    agentId, slug, firstPrompt, firstTimestamp, lastTimestamp, messageCount,
+    lastMessageRole,
+    status: deriveStatus(lastMessageRole, lastContentBlockType),
+  };
 }
 
 function parseSession(
@@ -118,6 +146,7 @@ function parseSession(
   let lastTimestamp: string | undefined;
   let messageCount = 0;
   let lastMessageRole: string | undefined;
+  let lastContentBlockType: string | undefined;
 
   for (const msg of messages) {
     if (msg.timestamp) {
@@ -137,6 +166,7 @@ function parseSession(
     if (msg.type === 'user' || msg.type === 'assistant') {
       messageCount++;
       lastMessageRole = msg.type;
+      lastContentBlockType = getLastContentBlockType(msg);
     }
   }
 
@@ -173,6 +203,7 @@ function parseSession(
     messageCount,
     subAgents,
     lastMessageRole,
+    status: deriveStatus(lastMessageRole, lastContentBlockType),
   };
 }
 
@@ -247,7 +278,7 @@ export function readClaudeProjects(): ClaudeProject[] {
   return projects;
 }
 
-function decodeDirName(dirName: string): string {
+export function decodeDirName(dirName: string): string {
   // Best-effort: leading - is /, each remaining - is /
   return '/' + dirName.replace(/^-/, '').replaceAll('-', '/');
 }
@@ -283,7 +314,7 @@ function searchPreview(pattern: unknown, output: string | undefined, unit: strin
   return preview;
 }
 
-function formatToolInput(name: string, input?: Record<string, unknown>): string {
+export function formatToolInput(name: string, input?: Record<string, unknown>): string {
   if (!input) return '';
   switch (name) {
     case 'Bash':
@@ -324,7 +355,7 @@ function formatToolInput(name: string, input?: Record<string, unknown>): string 
   }
 }
 
-function generateToolPreview(
+export function generateToolPreview(
   name: string,
   input: Record<string, unknown>,
   resultOutput?: string,

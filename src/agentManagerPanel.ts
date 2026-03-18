@@ -5,6 +5,7 @@ import * as os from 'os';
 import { readClaudeProjects, readConversation } from './claudeReader';
 import { ManagerSettings, ClaudeProject, ClaudeSession } from './types';
 import { exportConversation } from './exporter';
+import { TerminalManager } from './terminalManager';
 
 const DEFAULT_SETTINGS: ManagerSettings = {
   soundEnabled: false,
@@ -27,6 +28,11 @@ export class AgentManagerPanel {
   private _watchedProjectKey: string | undefined;
   private _watchedSessionId: string | undefined;
   private _watchedAgentId: string | undefined;
+  // _currentCwd and _currentSessionId are set on every loadConversation and used
+  // by the focusTerminal and sendMessage handlers below.
+  private _currentCwd: string | undefined;
+  private _currentSessionId: string | undefined;
+  private _terminalManager: TerminalManager;
 
   public static createOrShow(context: vscode.ExtensionContext): void {
     const column =
@@ -60,6 +66,9 @@ export class AgentManagerPanel {
     this._context = context;
 
     this._panel.webview.html = this._getHtml(this._panel.webview);
+    this._terminalManager = new TerminalManager((msg) =>
+      this._panel.webview.postMessage(msg)
+    );
 
     // Send initial data after a tick so the webview JS has loaded
     setTimeout(() => this._sendUpdate(), 100);
@@ -70,6 +79,7 @@ export class AgentManagerPanel {
       (e) => {
         if (e.webviewPanel.visible) {
           this._sendUpdate();
+          this._terminalManager.resumeScan();
           // Resume watcher if we had one paused
           const pk = this._watchedProjectKey;
           const sid = this._watchedSessionId;
@@ -80,6 +90,7 @@ export class AgentManagerPanel {
         } else {
           // Pause watcher but keep IDs for resume
           this._pauseFileWatcher();
+          this._terminalManager.pauseScan();
         }
       },
       null,
@@ -91,7 +102,7 @@ export class AgentManagerPanel {
         switch (message.command) {
           case 'openFolder':
             if (message.path) {
-              this._openFolder(message.path, message.newWindow ?? false);
+              this._openFolder(message.path);
             }
             break;
           case 'refresh':
@@ -105,6 +116,14 @@ export class AgentManagerPanel {
             break;
           case 'loadConversation':
             if (message.projectKey && message.sessionId) {
+              // CWD lookup uses the _projects cache (populated by _sendUpdate). If the panel
+              // loads a session before the first _sendUpdate cycle, cwd will be undefined.
+              const proj = this._projects.find((p) => p.key === message.projectKey);
+              const sess = proj?.sessions.find((s) => s.sessionId === message.sessionId);
+              this._currentCwd = sess?.cwd;
+              this._currentSessionId = message.sessionId;
+              this._terminalManager.setCurrentCwd(this._currentCwd);
+
               const messages = readConversation(
                 message.projectKey,
                 message.sessionId,
@@ -115,6 +134,7 @@ export class AgentManagerPanel {
                 messages,
                 sessionId: message.sessionId,
                 agentId: message.agentId,
+                cwd: this._currentCwd,
               });
               this._setupFileWatcher(message.projectKey, message.sessionId, message.agentId);
             }
@@ -123,6 +143,47 @@ export class AgentManagerPanel {
             if (message.projectKey && message.sessionId) {
               this._handleExportChat(message.projectKey, message.sessionId);
             }
+            break;
+          case 'focusTerminal':
+            if (this._currentCwd) {
+              this._terminalManager.focusSession(this._currentCwd);
+            }
+            break;
+          case 'sendMessage':
+            if (!this._currentCwd) {
+              this._panel.webview.postMessage({
+                command: 'sendMessageResult',
+                success: false,
+                error: 'Session has no working directory',
+              });
+              break;
+            }
+            if (typeof message.text !== 'string' || !message.text.trim()) {
+              this._panel.webview.postMessage({
+                command: 'sendMessageResult',
+                success: false,
+                error: 'No message text provided',
+              });
+              break;
+            }
+            void (async () => {
+              try {
+                if (!this._terminalManager.getTerminalForCwd(this._currentCwd!)) {
+                  await this._terminalManager.resumeSession(
+                    this._currentSessionId ?? '',
+                    this._currentCwd!
+                  );
+                }
+                await this._terminalManager.sendToSession(this._currentCwd!, message.text);
+                this._panel.webview.postMessage({ command: 'sendMessageResult', success: true });
+              } catch (e: unknown) {
+                this._panel.webview.postMessage({
+                  command: 'sendMessageResult',
+                  success: false,
+                  error: e instanceof Error ? e.message : String(e),
+                });
+              }
+            })();
             break;
         }
       },
@@ -136,11 +197,13 @@ export class AgentManagerPanel {
     }, 30000);
   }
 
-  private _openFolder(folderPath: string, newWindow: boolean): void {
+  private _openFolder(folderPath: string): void {
+    const folders = vscode.workspace.workspaceFolders ?? [];
+    const isCurrentWindow = folders.length === 0 || folders.some(f => f.uri.fsPath === folderPath);
     vscode.commands.executeCommand(
       'vscode.openFolder',
       vscode.Uri.file(folderPath),
-      { forceNewWindow: newWindow }
+      { forceNewWindow: !isCurrentWindow }
     );
   }
 
@@ -219,6 +282,9 @@ export class AgentManagerPanel {
     this._watchedProjectKey = undefined;
     this._watchedSessionId = undefined;
     this._watchedAgentId = undefined;
+    // _currentCwd and _currentSessionId are intentionally NOT cleared here.
+    // _teardownFileWatcher is called by _setupFileWatcher on every loadConversation,
+    // so clearing them here would immediately nullify the values set by the handler.
   }
 
   private _sendConversationTail(): void {
@@ -246,6 +312,7 @@ export class AgentManagerPanel {
           command: 'sidebarRowUpdate',
           sessionId: session.sessionId,
           lastMessageRole: session.lastMessageRole,
+          status: session.status,
           lastTimestamp: session.lastTimestamp,
           messageCount: session.messageCount,
         });
@@ -462,6 +529,8 @@ export class AgentManagerPanel {
           <span class="live-dot"></span>
           LIVE
         </span>
+        <button class="action-btn" id="focus-btn" title="Focus terminal" style="display:none">&#10548; Focus</button>
+        <button class="action-btn" id="send-btn" title="Send message" style="display:none">&#9993; Send</button>
         <button class="export-btn" id="export-btn" title="Export conversation">Export</button>
       </div>
       <div id="conversation-container" tabindex="0">
@@ -471,6 +540,13 @@ export class AgentManagerPanel {
           </svg>
           <p>Click on a session or agent in the sidebar to view the conversation.</p>
         </div>
+      </div>
+      <div id="send-bar">
+        <div id="send-bar-inner">
+          <textarea id="send-input" placeholder="Send a message to Claude…" rows="1" spellcheck="false"></textarea>
+          <button id="send-submit-btn" disabled>Send</button>
+        </div>
+        <div id="send-error"></div>
       </div>
     </div>
   </div>
@@ -484,6 +560,7 @@ export class AgentManagerPanel {
     AgentManagerPanel.currentPanel = undefined;
     if (this._refreshTimer) { clearInterval(this._refreshTimer); }
     this._teardownFileWatcher();
+    this._terminalManager.dispose();
     this._panel.dispose();
     while (this._disposables.length) {
       this._disposables.pop()?.dispose();
