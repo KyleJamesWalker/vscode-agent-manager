@@ -66,6 +66,9 @@ export class AgentManagerPanel {
     this._context = context;
 
     this._panel.webview.html = this._getHtml(this._panel.webview);
+    this._terminalManager = new TerminalManager((msg) =>
+      this._panel.webview.postMessage(msg)
+    );
 
     // Send initial data after a tick so the webview JS has loaded
     setTimeout(() => this._sendUpdate(), 100);
@@ -155,6 +158,14 @@ export class AgentManagerPanel {
               });
               break;
             }
+            if (typeof message.text !== 'string' || !message.text) {
+              this._panel.webview.postMessage({
+                command: 'sendMessageResult',
+                success: false,
+                error: 'No message text provided',
+              });
+              break;
+            }
             void (async () => {
               try {
                 if (!this._terminalManager.getTerminalForCwd(this._currentCwd!)) {
@@ -163,7 +174,7 @@ export class AgentManagerPanel {
                     this._currentCwd!
                   );
                 }
-                await this._terminalManager.sendToSession(this._currentCwd!, message.text as string);
+                await this._terminalManager.sendToSession(this._currentCwd!, message.text);
                 this._panel.webview.postMessage({ command: 'sendMessageResult', success: true });
               } catch (e: unknown) {
                 this._panel.webview.postMessage({
@@ -178,10 +189,6 @@ export class AgentManagerPanel {
       },
       null,
       this._disposables
-    );
-
-    this._terminalManager = new TerminalManager((msg) =>
-      this._panel.webview.postMessage(msg)
     );
 
     // Auto-refresh every 30 seconds when visible
