@@ -662,8 +662,9 @@ button {
   font-size: 11px;
   padding: 3px 10px;
   border-radius: 3px;
+  border: 1px solid var(--vscode-button-border, rgba(128,128,128,0.4));
   background: var(--vscode-button-secondaryBackground, rgba(128,128,128,0.2));
-  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+  color: var(--vscode-foreground);
   flex-shrink: 0;
   transition: background 0.1s, opacity 0.15s;
 }
