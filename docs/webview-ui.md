@@ -21,7 +21,7 @@ Extension → Webview:
 Webview → Extension:
 ```json
 { "command": "refresh" }
-{ "command": "openFolder", "path": "/abs/path", "newWindow": true|false }
+{ "command": "openFolder", "path": "/abs/path" }
 { "command": "togglePin", "key": "project-dir-name" }
 { "command": "updateSettings", "settings": { "soundEnabled": bool, "soundRepeatSec": number, "exportDestination": "dialog"|"default"|"cwd", "exportToolFormat": "compact"|"expanded"|"omit" } }
 { "command": "loadConversation", "projectKey": "...", "sessionId": "...", "agentId": "..." }
