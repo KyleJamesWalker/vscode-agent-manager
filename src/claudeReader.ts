@@ -247,7 +247,7 @@ export function readClaudeProjects(): ClaudeProject[] {
   return projects;
 }
 
-function decodeDirName(dirName: string): string {
+export function decodeDirName(dirName: string): string {
   // Best-effort: leading - is /, each remaining - is /
   return '/' + dirName.replace(/^-/, '').replaceAll('-', '/');
 }
@@ -283,7 +283,7 @@ function searchPreview(pattern: unknown, output: string | undefined, unit: strin
   return preview;
 }
 
-function formatToolInput(name: string, input?: Record<string, unknown>): string {
+export function formatToolInput(name: string, input?: Record<string, unknown>): string {
   if (!input) return '';
   switch (name) {
     case 'Bash':
@@ -324,7 +324,7 @@ function formatToolInput(name: string, input?: Record<string, unknown>): string 
   }
 }
 
-function generateToolPreview(
+export function generateToolPreview(
   name: string,
   input: Record<string, unknown>,
   resultOutput?: string,
