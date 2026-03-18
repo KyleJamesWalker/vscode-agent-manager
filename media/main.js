@@ -24,6 +24,30 @@
   let renderedMessageCount = 0;
   function deactivateLiveIndicator() {}
 
+  // Tailing state
+  let liveTimeout = null;
+  let isUserAtBottom = true;
+
+  // Keyboard navigation state
+  let sidebarHasFocus = false;
+  let lastGPress = 0;
+  let helpOverlayVisible = false;
+
+  // Scroll tracking for conversation container
+  const convContainerEl = document.getElementById('conversation-container');
+  if (convContainerEl) {
+    convContainerEl.addEventListener('scroll', function () {
+      const threshold = 50;
+      isUserAtBottom = (this.scrollHeight - this.scrollTop - this.clientHeight) < threshold;
+      if (isUserAtBottom) {
+        const pill = document.getElementById('new-msg-pill');
+        if (pill) pill.remove();
+        const div = document.querySelector('.new-msg-divider');
+        if (div) div.remove();
+      }
+    });
+  }
+
   // Restore webview-local state
   const saved = vscode.getState();
   if (saved) {
@@ -560,11 +584,22 @@
 
     if (!messages || messages.length === 0) {
       container.innerHTML = '<div class="conv-empty"><p>No messages in this conversation.</p></div>';
+      renderedMessageCount = 0;
       return;
     }
 
     const html = messages.map(renderMessage).join('');
-    container.innerHTML = `<div class="conv-messages">${html}</div>`;
+
+    // Fade-in transition (fade out is instant clear, fade in is 150ms)
+    const wrapper = document.createElement('div');
+    wrapper.className = 'conv-messages conv-crossfade fading';
+    wrapper.innerHTML = html;
+
+    container.innerHTML = '';
+    container.appendChild(wrapper);
+    // Force reflow then remove fading class to trigger transition
+    void wrapper.offsetHeight;
+    wrapper.classList.remove('fading');
 
     // Tool badge click-to-expand
     container.querySelectorAll('.tool-badge-header').forEach((header) => {
@@ -573,8 +608,8 @@
       });
     });
 
-    // Scroll to bottom
     container.scrollTop = container.scrollHeight;
+    renderedMessageCount = messages.length;
   }
 
   function renderMessage(msg) {

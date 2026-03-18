@@ -363,7 +363,7 @@ export class AgentManagerPanel {
         <span id="conv-breadcrumb">Select a session to view its conversation</span>
         <button class="export-btn" id="export-btn" title="Export conversation">Export</button>
       </div>
-      <div id="conversation-container">
+      <div id="conversation-container" tabindex="0">
         <div class="conv-empty">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="conv-empty-icon">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
