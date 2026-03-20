@@ -1,6 +1,6 @@
 {
-  "name": "vscode-agent-manager",
-  "displayName": "Claude Agent Manager",
+  "name": "vscode-cc-agent-manager",
+  "displayName": "Claude Code Agent Manager",
   "description": "Track Claude Code agents and sessions across all your workspaces",
   "license": "MIT",
   "version": "0.1.0",
@@ -11,6 +11,10 @@
   "categories": [
     "Other"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/KyleJamesWalker/vscode-cc-agent-manager"
+  },
   "keywords": [
     "claude",
     "agents",

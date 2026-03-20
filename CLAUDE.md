@@ -1,4 +1,4 @@
-# Claude Agent Manager — VSCode Extension
+# Claude Code Agent Manager — VSCode Extension
 
 A VSCode extension that reads Claude Code session data from `~/.claude/projects/` and displays active sessions, subagents, and their status in a two-panel webview. Read-only — never writes to Claude's data files.
 

@@ -1,4 +1,4 @@
-# Claude Agent Manager
+# Claude Code Agent Manager
 
 A VSCode extension that gives you a live dashboard of all your [Claude Code](https://docs.anthropic.com/en/docs/claude-code) sessions, subagents, and their status — right inside your editor.
 
@@ -6,7 +6,7 @@ Inspired by [Antigravity's Agent Manager](https://github.com/AntIgravworking/age
 
 ## What It Does
 
-Claude Agent Manager reads session data from `~/.claude/projects/` and presents it in a split-panel webview:
+Claude Code Agent Manager reads session data from `~/.claude/projects/` and presents it in a split-panel webview:
 
 **Sidebar** — All your Claude Code projects with their sessions and subagents
 - Search and filter by project name or path

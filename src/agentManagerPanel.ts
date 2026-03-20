@@ -46,7 +46,7 @@ export class AgentManagerPanel {
 
     const panel = vscode.window.createWebviewPanel(
       AgentManagerPanel.viewType,
-      'Claude Agent Manager',
+      'Claude Code Agent Manager',
       column,
       {
         enableScripts: true,
@@ -324,13 +324,13 @@ export class AgentManagerPanel {
     try {
       const project = this._projects.find((p) => p.key === projectKey);
       if (!project) {
-        vscode.window.showErrorMessage('Claude Agent Manager: Project not found.');
+        vscode.window.showErrorMessage('Claude Code Agent Manager: Project not found.');
         this._panel.webview.postMessage({ command: 'exportDone' });
         return;
       }
       const session = project.sessions.find((s) => s.sessionId === sessionId);
       if (!session) {
-        vscode.window.showErrorMessage('Claude Agent Manager: Session not found.');
+        vscode.window.showErrorMessage('Claude Code Agent Manager: Session not found.');
         this._panel.webview.postMessage({ command: 'exportDone' });
         return;
       }
@@ -356,7 +356,7 @@ export class AgentManagerPanel {
       vscode.window.showInformationMessage(msg);
     } catch (e: unknown) {
       vscode.window.showErrorMessage(
-        `Claude Agent Manager: Export failed: ${e instanceof Error ? e.message : String(e)}`
+        `Claude Code Agent Manager: Export failed: ${e instanceof Error ? e.message : String(e)}`
       );
     } finally {
       this._panel.webview.postMessage({ command: 'exportDone' });
@@ -396,7 +396,7 @@ export class AgentManagerPanel {
       fs.mkdirSync(dir, { recursive: true });
     } catch (e: unknown) {
       vscode.window.showErrorMessage(
-        `Claude Agent Manager: Failed to create export directory: ${e instanceof Error ? e.message : String(e)}`
+        `Claude Code Agent Manager: Failed to create export directory: ${e instanceof Error ? e.message : String(e)}`
       );
       return undefined;
     }
