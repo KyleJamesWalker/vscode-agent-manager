@@ -5,3 +5,4 @@ out/
 .worktrees/
 .superpowers/
 docs/superpowers/plans/
+HOW_TO_RELEASE.md
