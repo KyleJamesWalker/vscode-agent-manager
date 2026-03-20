@@ -697,6 +697,11 @@ button {
   outline: none;
 }
 
+#conversation-container.conv-focused {
+  outline: 1px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: -2px;
+}
+
 /* ── Crossfade Transition ────────────────────────────────────────────────── */
 .conv-crossfade {
   transition: opacity 150ms ease;
