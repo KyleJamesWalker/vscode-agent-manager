@@ -19,3 +19,10 @@ A VSCode extension that reads Claude Code session data from `~/.claude/projects/
 - [docs/data-model.md](docs/data-model.md) — types, JSONL format, filtering/status logic
 - [docs/webview-ui.md](docs/webview-ui.md) — message protocol, UI components, keyboard shortcuts, export
 - [docs/development.md](docs/development.md) — setup, project structure, build, packaging
+- [docs/testing.md](docs/testing.md) — test structure, Jest unit tests, Mocha integration tests, what to test when adding features
+
+## Spec-Driven Development
+
+New features and significant changes start with a spec in `docs/superpowers/specs/`. Specs are approved before implementation begins. Corresponding, untracked, implementation plans live in `docs/superpowers/plans/`.
+
+When making changes, check `docs/superpowers/specs/` for an existing approved spec before writing code. If a spec exists, implementation must satisfy its acceptance criteria.
