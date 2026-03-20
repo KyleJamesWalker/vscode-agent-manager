@@ -3,7 +3,7 @@
   "displayName": "Claude Agent Manager",
   "description": "Track Claude Code agents and sessions across all your workspaces",
   "license": "MIT",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "publisher": "KyleJamesWalker",
   "engines": {
     "vscode": "^1.85.0"
