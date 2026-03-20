@@ -2,8 +2,9 @@
   "name": "vscode-agent-manager",
   "displayName": "Claude Agent Manager",
   "description": "Track Claude Code agents and sessions across all your workspaces",
-  "version": "0.1.0",
-  "publisher": "kyle-walker",
+  "license": "MIT",
+  "version": "0.0.0",
+  "publisher": "KyleJamesWalker",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -53,6 +54,7 @@
     "test:integration": "node ./out/test/integration/runTest.js"
   },
   "devDependencies": {
+    "@vscode/vsce": "^3.0.0",
     "@types/jest": "^30.0.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "^20.0.0",
