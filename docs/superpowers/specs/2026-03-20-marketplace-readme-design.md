@@ -74,6 +74,7 @@ Keybinding + command palette + keyboard nav cheatsheet
 
 **Interact section** (replaces "read-only" claim):
 - Send messages directly to any Claude session from the panel
+- Automatically resumes a session in a new terminal if Claude is not already running
 - Full conversation view with Markdown rendering and collapsible tool badges (Bash shows command, Read/Edit shows filename, Grep shows pattern + match count)
 - Live-tailing — new messages appear automatically via file watcher
 
@@ -116,7 +117,7 @@ Use shields.io style badges for:
 1. README no longer contains the phrase "read-only" or any claim that the extension only reads data
 2. Send/Interact feature is documented in the features section
 3. Export feature is a first-class section
-4. Screenshot is embedded and visible on the marketplace page
+4. README contains `![screenshot](screenshot.png)` and `screenshot.png` exists at the project root
 5. Installation instructions lead with marketplace install, not source build
 6. Developer sections (Build, Debug, Project Structure, How It Works) are present but inside a `<details>` collapse
 7. Keyboard shortcut to open the panel is documented
