@@ -57,7 +57,7 @@ The default build task (`npm run watch`) starts automatically on F5, recompiling
 npx @vscode/vsce package
 
 # Install it
-code --install-extension vscode-agent-manager-0.1.0.vsix
+code --install-extension vscode-agent-manager-0.0.0.vsix
 ```
 
 Or in VSCode: **Extensions** sidebar > `...` menu > **Install from VSIX...**.
