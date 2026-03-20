@@ -1,34 +1,60 @@
 # Claude Code Agent Manager
 
-A VSCode extension that gives you a live dashboard of all your [Claude Code](https://docs.anthropic.com/en/docs/claude-code) sessions, subagents, and their status — right inside your editor.
+[![Version](https://img.shields.io/badge/version-v0.1.0-blue)](https://marketplace.visualstudio.com/items?itemName=KyleJamesWalker.vscode-cc-agent-manager)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![VSCode Marketplace](https://img.shields.io/visual-studio-marketplace/i/KyleJamesWalker.vscode-cc-agent-manager?label=installs)](https://marketplace.visualstudio.com/items?itemName=KyleJamesWalker.vscode-cc-agent-manager)
 
-Inspired by [Antigravity's Agent Manager](https://github.com/AntIgravworking/agent-manager).
+> A live dashboard for your Claude Code sessions — monitor agents, send messages, and export conversations without leaving VSCode.
 
-## What It Does
+![screenshot](screenshot.png)
 
-Claude Code Agent Manager reads session data from `~/.claude/projects/` and presents it in a split-panel webview:
+## Features
 
-**Sidebar** — All your Claude Code projects with their sessions and subagents
-- Search and filter by project name or path
-- Filter chips: All / Active / Waiting / Pinned (with live counts)
-- Pin favorite projects to the top
-- Status indicators: active (green), waiting (orange pulse), recent (yellow), idle (gray)
-- Open projects in the current or a new VSCode window
+### 🔍 Monitor
 
-**Main Panel** — Conversation viewer for any selected session or subagent
-- Full Markdown rendering (GFM, tables, code blocks, task lists)
-- Collapsible tool badges with contextual previews (Bash shows the command, Read/Edit shows the filename, Grep/Glob shows the pattern and match count)
-- Breadcrumb navigation between sessions and subagents
+- Browse all projects, sessions, and subagents across workspaces
+- Live status indicators: active (green), waiting for input (orange pulse), recent (yellow), idle (gray)
+- Filter chips: All / Active / Waiting / Pinned — with live counts
+- Sound notifications when a session needs attention, with configurable repeat intervals (30s / 1m / 2m / 5m)
 
-**Sound Notifications** — Optional audio chime when a session enters "waiting for input" state, with configurable repeat intervals (30s / 1m / 2m / 5m).
+### 💬 Interact
 
-The extension is **read-only** — it never writes to Claude's data files.
+- Send messages directly to any Claude session from the panel
+- Automatically resumes a session in a new terminal if Claude is not already running
+- Full conversation view with Markdown rendering and collapsible tool badges (Bash shows command, Read/Edit shows filename, Grep shows pattern + match count)
+- Live-tailing — new messages appear automatically via file watcher
 
-## Prerequisites
+### 📤 Export
 
-- [Node.js](https://nodejs.org/) 20+
-- [VSCode](https://code.visualstudio.com/) 1.85+
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (sessions must exist in `~/.claude/projects/`)
+- Save any conversation to Markdown with one click
+- Configurable tool output format: compact, expanded, or omit
+
+## Installation
+
+**Via Extensions panel** (recommended): Search `Claude Code Agent Manager` in the VSCode Extensions sidebar and click Install.
+
+**Via command line:**
+
+```
+ext install KyleJamesWalker.vscode-cc-agent-manager
+```
+
+## Usage
+
+Open the Agent Manager with `Cmd+Shift+A` (macOS) / `Ctrl+Shift+A` (Windows/Linux), or run `Claude: Open Agent Manager` from the Command Palette.
+
+**Sidebar keyboard shortcuts:**
+
+| Key | Action |
+|-----|--------|
+| `j` / `k` | Navigate up / down |
+| `/` | Search |
+| `p` | Pin / unpin |
+| `?` | Help overlay |
+
+---
+
+<details><summary>For Developers</summary>
 
 ## Build
 
@@ -57,7 +83,7 @@ The default build task (`npm run watch`) starts automatically on F5, recompiling
 npx @vscode/vsce package
 
 # Install it
-code --install-extension vscode-agent-manager-0.0.0.vsix
+code --install-extension vscode-cc-agent-manager-0.1.0.vsix
 ```
 
 Or in VSCode: **Extensions** sidebar > `...` menu > **Install from VSIX...**.
@@ -69,6 +95,7 @@ src/
   extension.ts          # Entry point — registers the openPanel command
   agentManagerPanel.ts  # Singleton webview panel, 30s auto-refresh, CSP-secured
   claudeReader.ts       # Parses JSONL session/subagent files from disk
+  exporter.ts           # Renders conversations to Markdown
   types.ts              # ClaudeProject, ClaudeSession, SubAgent interfaces
 media/
   main.js               # Webview client UI (vanilla JS, no framework)
@@ -88,6 +115,8 @@ docs/
 3. Each project directory contains JSONL session files (and optional `subagents/` directories)
 4. The reader parses messages, extracts metadata (git branch, first prompt, timestamps, tool usage), and derives session status
 5. The webview refreshes every 30 seconds, updating status indicators and triggering sound notifications for newly waiting sessions
+
+</details>
 
 ## License
 
