@@ -1,7 +1,7 @@
 # Claude Code Agent Manager
 
-[![Version](https://img.shields.io/badge/version-v0.1.0-blue)](https://marketplace.visualstudio.com/items?itemName=KyleJamesWalker.vscode-cc-agent-manager)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Version](https://img.shields.io/visual-studio-marketplace/v/KyleJamesWalker.vscode-cc-agent-manager?label=version&color=blue)](https://marketplace.visualstudio.com/items?itemName=KyleJamesWalker.vscode-cc-agent-manager)
+[![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/KyleJamesWalker/vscode-cc-agent-manager/blob/main/LICENSE)
 [![VSCode Marketplace](https://img.shields.io/visual-studio-marketplace/i/KyleJamesWalker.vscode-cc-agent-manager?label=installs)](https://marketplace.visualstudio.com/items?itemName=KyleJamesWalker.vscode-cc-agent-manager)
 
 > A live dashboard for your Claude Code sessions — monitor agents, send messages, and export conversations without leaving VSCode.
