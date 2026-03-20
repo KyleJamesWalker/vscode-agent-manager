@@ -41,7 +41,7 @@
   let expandedProjectKeys = new Set();
 
   // Keyboard navigation state
-  let sidebarHasFocus = false;
+  let sidebarHasFocus = true;
   let lastGPress = 0;
   let helpOverlayVisible = false;
 
@@ -551,6 +551,10 @@
           if (proj.classList.contains('collapsed')) expandedProjectKeys.delete(key);
           else expandedProjectKeys.add(key);
         }
+        // Sync keyboard focus index to clicked project header
+        const items = getFlatNavigationList();
+        const idx = items.findIndex((item) => item.el === hdr);
+        if (idx >= 0) focusedIndex = idx;
       });
     });
 
@@ -638,6 +642,13 @@
     // Visual selection
     document.querySelectorAll('.tree-session, .tree-subagent').forEach((r) => r.classList.remove('selected'));
     if (rowEl) rowEl.classList.add('selected');
+
+    // Sync keyboard focus index to clicked row so j/k continues from here
+    if (rowEl) {
+      const items = getFlatNavigationList();
+      const idx = items.findIndex((item) => item.el === rowEl);
+      if (idx >= 0) focusedIndex = idx;
+    }
 
     // Show loading in conversation panel
     const convContainer = document.getElementById('conversation-container');
@@ -1064,7 +1075,7 @@
 
   document.addEventListener('keydown', (e) => {
     if (document.activeElement === searchInput) {
-      if (e.key === 'Escape') { searchInput.blur(); sidebarHasFocus = true; e.preventDefault(); }
+      if (e.key === 'Escape' || e.key === 'Enter') { searchInput.blur(); sidebarHasFocus = true; e.preventDefault(); }
       return;
     }
     if (helpOverlayVisible) {
@@ -1072,18 +1083,26 @@
       return;
     }
 
-    // Vim bindings only active when sidebar has focus (spec requirement)
-    if (!sidebarHasFocus && e.key !== 'Tab' && e.key !== '?') return;
-
     const items = getFlatNavigationList();
 
     switch (e.key) {
       case 'j':
-        e.preventDefault(); sidebarHasFocus = true; moveFocus(1); break;
+        e.preventDefault();
+        if (!sidebarHasFocus) { const conv = document.getElementById('conversation-container'); if (conv) conv.scrollTop += 80; }
+        else { moveFocus(1); }
+        break;
       case 'k':
-        e.preventDefault(); sidebarHasFocus = true; moveFocus(-1); break;
+        e.preventDefault();
+        if (!sidebarHasFocus) { const conv = document.getElementById('conversation-container'); if (conv) conv.scrollTop -= 80; }
+        else { moveFocus(-1); }
+        break;
       case 'h': {
         e.preventDefault();
+        if (!sidebarHasFocus) {
+          sidebarHasFocus = true;
+          document.getElementById('conversation-container').classList.remove('conv-focused');
+          break;
+        }
         if (focusedIndex < 0 || focusedIndex >= items.length) break;
         const item = items[focusedIndex];
         if (item.type === 'project') {
@@ -1098,7 +1117,11 @@
         e.preventDefault();
         if (focusedIndex < 0 || focusedIndex >= items.length) break;
         const item = items[focusedIndex];
-        if (item.type === 'project') {
+        if (item.type === 'session' || item.type === 'subagent') {
+          item.el.click();
+          sidebarHasFocus = false;
+          document.getElementById('conversation-container').classList.add('conv-focused');
+        } else if (item.type === 'project') {
           if (item.projectEl.classList.contains('collapsed')) {
             item.projectEl.classList.remove('collapsed');
             const key = item.projectEl.dataset.key;
@@ -1128,6 +1151,7 @@
         document.getElementById('conversation-container').innerHTML =
           '<div class="conv-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="conv-empty-icon"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><p>Click on a session or agent in the sidebar to view the conversation.</p></div>';
         document.getElementById('conv-breadcrumb').textContent = 'Select a session to view its conversation';
+        document.getElementById('conversation-container').classList.remove('conv-focused');
         deactivateLiveIndicator(); sidebarHasFocus = true;
         break;
       }
@@ -1140,26 +1164,35 @@
       }
       case 'g': {
         const now = Date.now();
-        if (now - lastGPress < 500) { e.preventDefault(); setFocusedItem(0); lastGPress = 0; }
-        else { lastGPress = now; }
+        if (now - lastGPress < 500) {
+          e.preventDefault();
+          if (!sidebarHasFocus) { const conv = document.getElementById('conversation-container'); if (conv) conv.scrollTop = 0; }
+          else { setFocusedItem(0); }
+          lastGPress = 0;
+        } else { lastGPress = now; }
         break;
       }
       case 'G':
-        e.preventDefault(); setFocusedItem(items.length - 1); break;
+        e.preventDefault();
+        if (!sidebarHasFocus) { const conv = document.getElementById('conversation-container'); if (conv) conv.scrollTop = conv.scrollHeight; }
+        else { setFocusedItem(items.length - 1); }
+        break;
       case '/':
-        e.preventDefault(); searchInput.focus(); sidebarHasFocus = false; break;
+        e.preventDefault(); searchInput.focus(); searchInput.select(); sidebarHasFocus = false; break;
       case '?':
         e.preventDefault(); showHelpOverlay(); break;
-      case 'Tab':
+      case 'Tab': {
         e.preventDefault();
         sidebarHasFocus = !sidebarHasFocus;
+        const convEl = document.getElementById('conversation-container');
         if (sidebarHasFocus) {
-          document.getElementById('conversation-container').blur();
+          convEl.classList.remove('conv-focused');
         } else {
           document.querySelectorAll('.focused').forEach((el) => el.classList.remove('focused'));
-          document.getElementById('conversation-container').focus();
+          convEl.classList.add('conv-focused');
         }
         break;
+      }
     }
   });
 
@@ -1173,8 +1206,8 @@
       <div class="help-title">Keyboard Shortcuts</div>
       <div class="help-grid">
         <div class="help-key">j / k</div><div class="help-desc">Navigate up / down</div>
-        <div class="help-key">h</div><div class="help-desc">Collapse / go to parent</div>
-        <div class="help-key">l</div><div class="help-desc">Expand / go to first child</div>
+        <div class="help-key">h</div><div class="help-desc">Collapse / go to parent / return to sidebar</div>
+        <div class="help-key">l</div><div class="help-desc">Expand / open conversation (shifts focus right)</div>
         <div class="help-key">Enter</div><div class="help-desc">Open conversation</div>
         <div class="help-key">Escape</div><div class="help-desc">Deselect / close overlay</div>
         <div class="help-key">p</div><div class="help-desc">Toggle pin on project</div>
