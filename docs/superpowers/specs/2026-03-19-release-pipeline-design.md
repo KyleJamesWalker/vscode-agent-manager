@@ -51,7 +51,7 @@ permissions:
 Steps:
 1. Checkout the release tag
 2. `npm ci` (reproducible install from lockfile)
-3. `npx @vscode/vsce package` → produces `vscode-agent-manager-X.Y.Z.vsix`
+3. `npx @vscode/vsce package` → produces `vscode-cc-agent-manager-X.Y.Z.vsix`
 4. Upload VSIX as GitHub release asset (done first so artifact is always available on failure)
 5. `npx @vscode/vsce publish` using `VSCE_PAT` secret
 
