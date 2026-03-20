@@ -58,3 +58,39 @@ The extension has zero runtime dependencies and uses `tsc` directly. No webpack/
 ```bash
 npx vsce package    # Creates .vsix file
 ```
+
+## GitHub Actions & Publishing
+
+Two workflows handle versioning and marketplace publishing.
+
+### Release workflow (`.github/workflows/release.yml`)
+
+Triggers when a PR is **merged into `main`** with one of these labels: `major`, `minor`, or `patch`.
+
+Steps:
+1. Bumps `package.json` version via `npm version <type>`
+2. Commits the version bump back to `main` with `[skip ci]`
+3. Creates and pushes a git tag (`v<version>`)
+4. Creates a **draft** GitHub release with auto-generated notes
+
+The release is left as a draft so you can review the changelog before it goes public.
+
+### Publish workflow (`.github/workflows/publish.yml`)
+
+Triggers when a GitHub release is **published** (i.e. you manually promote the draft).
+
+Steps:
+1. Runs `npm ci` and `npx @vscode/vsce package`
+2. Uploads the `.vsix` artifact to the GitHub release
+3. Publishes to the VS Code Marketplace via `vsce publish`
+
+Requires a `VSCE_PAT` repository secret (a Personal Access Token from the VS Code Marketplace publisher account).
+
+### Release process (end to end)
+
+1. Label your PR with `major`, `minor`, or `patch` before merging
+2. Merge the PR — the Release workflow runs automatically
+3. Go to the GitHub Releases page and review the draft
+4. Click **Publish release** — the Publish workflow runs and pushes to the Marketplace
+
+> **Why draft?** GitHub Actions workflows triggered by `GITHUB_TOKEN` cannot cascade into other workflow runs. Creating the release as a draft and publishing it manually ensures the `release: published` event is attributed to your user account, which correctly triggers the Publish workflow.
